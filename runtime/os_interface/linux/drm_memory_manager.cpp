@@ -90,7 +90,7 @@ void DrmMemoryManager::initInternalRangeAllocator(size_t gpuRange) {
         this->limitedGpuAddressRangeAllocator.reset(new AllocatorLimitedRange(MemoryConstants::pageSize, gpuRange + 1 - MemoryConstants::pageSize));
 
         // 0x1000 ~ 0xFFFFFFFF address space for external 32bit allocator //
-        uint64_t size = 4 * MemoryConstants::gigaByte - MemoryConstants::pageSize;
+        size_t size = 4 * MemoryConstants::gigaByte - MemoryConstants::pageSize;
         uint64_t allocatorBase = this->limitedGpuAddressRangeAllocator->allocate(size);
         allocator32Bit.reset(new Allocator32bit(allocatorBase, size));
 
