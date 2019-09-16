@@ -1,0 +1,70 @@
+cc_library_shared {
+    name: "libtest_dynamic_lib",
+
+    vendor_available: true,
+
+    defaults: [
+        "neo-defaults",
+    ],
+
+    srcs: [
+        "unit_tests/test_dynamic_lib/test_dynamic_lib_lin.cpp",
+    ],
+
+    cflags: [
+        
+    ],
+
+    cppflags: [
+        "-ftemplate-depth=1024",
+        "-Wall",
+        "-Wempty-body",
+        "-Wignored-qualifiers",
+        "-Wtype-limits",
+        "-Wuninitialized",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-Wno-unused-local-typedefs",
+        "-Wno-unused-but-set-variable",
+        "-fstack-protector-strong",
+        "-Wformat",
+        "-Wformat-security",
+        "-O3",
+        "-DNDEBUG",
+        "-O0",
+        "-fPIC",
+        "-std=gnu++14",
+        "-DCL_TARGET_OPENCL_VERSION=210",
+        "-DCL_USE_DEPRECATED_OPENCL_1_1_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_1_2_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_0_APIS",
+        "-DGL_TARGET_OPENGL_VERSION=210",
+        "-DGMM_OCL",
+        "-DLIBVA",
+        "-Dtest_dynamic_lib_EXPORTS",
+
+    ],
+
+    local_include_dirs: [
+        "runtime/sku_info/definitions",
+        "runtime/os_interface/definitions",
+        "runtime/command_stream/definitions",
+        "runtime/gen_common/reg_configs",
+        "runtime/gmm_helper",
+        "runtime/gmm_helper/client_context",
+        "runtime/gmm_helper/gmm_memory",
+        "runtime/mem_obj/definitions",
+        "runtime/memory_manager/definitions",
+        "runtime/instrumentation",
+    ],
+
+    shared_libs: [
+        
+    ],
+
+    static_libs: [
+        
+    ],
+
+}

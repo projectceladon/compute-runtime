@@ -1,0 +1,94 @@
+cc_defaults {
+    name: "neo-defaults",
+
+    vendor_available: true,
+
+    cflags: [
+        
+    ],
+
+    cppflags: [
+        "-Wno-error",
+        "-fexceptions",
+        "-fno-strict-aliasing",
+        "-msse",
+        "-msse2",
+        "-msse3",
+        "-mssse3",
+        "-msse4",
+        "-msse4.1",
+        "-msse4.2",
+        "-DBIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD",
+    ],
+
+    clang_cflags: [
+        "-Wno-error=non-virtual-dtor",
+    ],
+
+    include_dirs: [
+        "hardware/intel/external/libva",
+        "hardware/intel/external/media/gmmlib/Source/inc",
+        "hardware/intel/external/media/gmmlib/Source/inc/common",
+        "hardware/intel/external/media/gmmlib/Source/GmmLib/inc",
+        "hardware/intel/external/opencl/igc/include/IGC",
+        "hardware/intel/external/opencl/igc/include/IGC/AdaptorOCL",
+        "hardware/intel/external/opencl/igc/include/IGC/AdaptorOCL/cif",
+        "hardware/intel/external/opencl/igc/include/IGC/AdaptorOCL/ocl_igc_shared",
+        "hardware/intel/external/opencl/igc/include/IGC/AdaptorOCL/ocl_igc_shared/device_enqueue",
+        "hardware/intel/external/opencl/igc/include/IGC/AdaptorOCL/ocl_igc_shared/executable_format",
+        "hardware/intel/external/opencl/neo/device/include",
+        "hardware/intel/external/opencl/neo/third_party",
+        "hardware/intel/external/opencl/neo/third_party/gtest",
+        "hardware/intel/external/opencl/neo/third_party/opencl_headers",
+        "hardware/intel/external/opencl/neo/third_party/opengl_headers",
+        "hardware/intel/external/opencl/neo/third_party/source_level_debugger",
+        "hardware/intel/external/opencl/neo/third_party/uapi",
+        "hardware/intel/external/opencl/neo/runtime/sku_info/definitions",
+        "hardware/intel/external/opencl/neo/runtime/os_interface/definitions",
+        "hardware/intel/external/opencl/neo/runtime/os_interface/linux",
+        "hardware/intel/external/opencl/neo/runtime/command_stream/definitions",
+        "hardware/intel/external/opencl/neo/runtime/gen_common",
+        "hardware/intel/external/opencl/neo/runtime/gen_common/reg_configs",
+        "hardware/intel/external/opencl/neo/runtime/gmm_helper",
+        "hardware/intel/external/opencl/neo/runtime/gmm_helper/client_context",
+        "hardware/intel/external/opencl/neo/runtime/gmm_helper/gmm_memory",
+        "hardware/intel/external/opencl/neo/runtime/mem_obj/definitions",
+        "hardware/intel/external/opencl/neo/runtime/memory_manager/definitions",
+        "hardware/intel/external/opencl/neo/runtime/instrumentation",
+        "hardware/intel/external/opencl/neo/runtime/dll/linux/devices",
+        "hardware/intel/external/opencl/neo/unit_tests/mocks",
+    ],
+
+    shared_libs: [
+        
+    ],
+
+    static_libs: [
+        
+    ],
+
+}
+
+
+build = [
+    "libelflib.bp",
+    "libigdrcl_lib_mockable.bp",
+    "igdrcl_lib_mockable_sharings_enable.bp",
+    "libigdrcl_lib_release.bp",
+    "igdrcl_lib_release_sharings_enable.bp",
+    "libigdrcl.bp",
+    "libgmock-gtest.bp",
+    "ocloc.bp",
+    "igdrcl_aub_tests.bp",
+    "elflib_tests.bp",
+    "igdrcl_linux_tests.bp",
+    "libmock_gmm.bp",
+    "libigdrcl_mocks.bp",
+    "igdrcl_mt_tests.bp",
+    "ocloc_tests.bp",
+    "ocloc_segfault_test.bp",
+    "igdrcl_tbx_tests.bp",
+    "libtest_dynamic_lib.bp",
+    "igdrcl_libult_cs.bp",
+    "igdrcl_libult.bp",
+]

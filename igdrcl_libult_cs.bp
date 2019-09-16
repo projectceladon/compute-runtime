@@ -1,0 +1,103 @@
+cc_library_static {
+    name: "igdrcl_libult_cs",
+
+    vendor_available: true,
+
+    defaults: [
+        "neo-defaults",
+    ],
+
+    srcs: [
+        "unit_tests/libult/create_command_stream.cpp",
+    ],
+
+    cflags: [
+        
+    ],
+
+    cppflags: [
+        "-ftemplate-depth=1024",
+        "-Wall",
+        "-Wempty-body",
+        "-Wignored-qualifiers",
+        "-Wtype-limits",
+        "-Wuninitialized",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-Wno-unused-local-typedefs",
+        "-Wno-unused-but-set-variable",
+        "-fstack-protector-strong",
+        "-Wformat",
+        "-Wformat-security",
+        "-O3",
+        "-DNDEBUG",
+        "-O0",
+        "-fPIC",
+        "-std=gnu++14",
+        "-DCIF_HEADERS_ONLY_BUILD",
+        "-DCL_TARGET_OPENCL_VERSION=210",
+        "-DCL_USE_DEPRECATED_OPENCL_1_1_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_1_2_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_0_APIS",
+        "-DDEFAULT_PLATFORM=SKL",
+        "-DDEFAULT_TEST_FAMILY_NAME=SKLFamily",
+        "-DDEFAULT_TEST_PLATFORM=SKL",
+        "-DGL_TARGET_OPENGL_VERSION=210",
+        "-DGMM_LIB_DLL",
+        "-DGMM_OCL",
+        "-DLIBVA",
+        "-DMOCKABLE_VIRTUAL=virtual",
+        "-DSUPPORT_BDW",
+        "-DSUPPORT_BXT",
+        "-DSUPPORT_CFL",
+        "-DSUPPORT_CNL",
+        "-DSUPPORT_GEN10",
+        "-DSUPPORT_GEN8",
+        "-DSUPPORT_GEN9",
+        "-DSUPPORT_GLK",
+        "-DSUPPORT_KBL",
+        "-DSUPPORT_SKL",
+        "-DTESTS_BDW",
+        "-DTESTS_BXT",
+        "-DTESTS_CFL",
+        "-DTESTS_CNL",
+        "-DTESTS_GEN10",
+        "-DTESTS_GEN8",
+        "-DTESTS_GEN9",
+        "-DTESTS_GLK",
+        "-DTESTS_KBL",
+        "-DTESTS_SKL",
+
+    ],
+
+    local_include_dirs: [
+        "runtime/sku_info/definitions",
+        "runtime/os_interface/definitions",
+        "runtime/command_stream/definitions",
+        "runtime/gen_common/reg_configs",
+        "runtime/gmm_helper",
+        "runtime/gmm_helper/client_context",
+        "runtime/gmm_helper/gmm_memory",
+        "runtime/mem_obj/definitions",
+        "runtime/memory_manager/definitions",
+        "runtime/instrumentation",
+        "third_party/aub_stream/headers",
+        "third_party/opencl_headers",
+        "third_party/opengl_headers",
+        "runtime/gen_common",
+        "third_party/source_level_debugger",
+        "runtime/os_interface/linux",
+        "third_party/uapi",
+        "elf",
+    ],
+
+    shared_libs: [
+        
+    ],
+
+    static_libs: [
+        
+    ],
+
+}
