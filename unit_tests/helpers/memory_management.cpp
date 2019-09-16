@@ -17,7 +17,7 @@
 #include <iostream>
 #include <new>
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <cstdio>
 #include <execinfo.h>
 #elif defined(_WIN32)
@@ -105,7 +105,7 @@ static void *allocate(size_t size) {
 
         eventAllocation.address = p;
         eventAllocation.event = typeValid;
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
         eventAllocation.frames = logTraces ? backtrace(eventAllocation.callstack, AllocationEvent::CallStackSize) : 0;
 #elif defined(_WIN32)
         eventAllocation.frames = logTraces ? CaptureStackBackTrace(0, AllocationEvent::CallStackSize, eventAllocation.callstack, NULL) : 0;
@@ -157,7 +157,7 @@ static void *allocate(size_t size, const std::nothrow_t &) {
                                     : typeFail;
         eventAllocation.address = p;
         eventAllocation.size = size;
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
         eventAllocation.frames = logTraces ? backtrace(eventAllocation.callstack, AllocationEvent::CallStackSize) : 0;
 #elif defined(_WIN32)
         eventAllocation.frames = logTraces ? CaptureStackBackTrace(0, AllocationEvent::CallStackSize, eventAllocation.callstack, NULL) : 0;
@@ -202,7 +202,7 @@ static void deallocate(void *p) {
             eventDeallocation.event = typeValid;
             eventDeallocation.address = p;
             eventDeallocation.size = -1;
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
             eventDeallocation.frames = logTraces ? backtrace(eventDeallocation.callstack, AllocationEvent::CallStackSize) : 0;
 #elif defined(_WIN32)
             eventDeallocation.frames = logTraces ? CaptureStackBackTrace(0, AllocationEvent::CallStackSize, eventDeallocation.callstack, NULL) : 0;

@@ -12,7 +12,7 @@
 #include "unit_tests/memory_leak_listener.h"
 
 #include <cinttypes>
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <cstdio>
 #include <cxxabi.h>
 #include <dlfcn.h>
@@ -131,7 +131,7 @@ std::string printCallStack(const MemoryManagement::AllocationEvent &event) {
         printf("for detailed stack information turn on captureCallStacks in memory_management_fixture.h\n");
     }
     if (printMemoryOpCallStack && event.frames > 0) {
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
         char **bt = backtrace_symbols(event.callstack, event.frames);
         char *demangled;
         int status;

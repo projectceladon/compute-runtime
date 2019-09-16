@@ -10,7 +10,9 @@
 
 #include <cstdio>
 #include <cstdlib>
+#if !defined(__ANDROID__)
 #include <execinfo.h>
+#endif
 #include <setjmp.h>
 #include <signal.h>
 
@@ -28,6 +30,7 @@ class SafetyGuardLinux {
     }
 
     static void sigAction(int sig_num, siginfo_t *info, void *ucontext) {
+#if !defined(__ANDROID__)
         const int callstackDepth = 30;
         void *addresses[callstackDepth];
         char **callstack;
@@ -42,6 +45,7 @@ class SafetyGuardLinux {
 
         free(callstack);
         longjmp(jmpbuf, 1);
+#endif
     }
 
     template <typename T, typename Object, typename Method>
