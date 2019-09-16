@@ -127,7 +127,13 @@ TEST_F(DrmGemCloseWorkerTests, gemCloseExit) {
 
     //wait for worker to complete or deadCnt drops
     while (!worker->isEmpty() && (deadCnt-- > 0))
+    {
+#if defined( __ANDROID__)
+        sched_yield(); //yield to another threads
+#else
         pthread_yield(); //yield to another threads
+#endif
+    }
 
     worker->close(false);
 
@@ -148,7 +154,13 @@ TEST_F(DrmGemCloseWorkerTests, close) {
 
     //wait for worker to complete or deadCnt drops
     while (!worker->isEmpty() && (deadCnt-- > 0))
+    {
+#if defined( __ANDROID__)
+        sched_yield(); //yield to another threads
+#else
         pthread_yield(); //yield to another threads
+#endif
+    }
 
     //and check if GEM was closed
     EXPECT_EQ(1, this->drmMock->gem_close_cnt.load());
