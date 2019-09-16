@@ -1,0 +1,72 @@
+cc_library_static {
+    name: "libelflib",
+
+    vendor_available: true,
+
+    defaults: [
+        "neo-defaults",
+    ],
+
+    srcs: [
+        "elf/reader.cpp",
+        "elf/writer.cpp",
+    ],
+
+    cflags: [
+        
+    ],
+
+    cppflags: [
+        "-ftemplate-depth=1024",
+        "-Wall",
+        "-Wempty-body",
+        "-Wignored-qualifiers",
+        "-Wtype-limits",
+        "-Wuninitialized",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-Wno-unused-local-typedefs",
+        "-Wno-unused-but-set-variable",
+        "-fstack-protector-strong",
+        "-O2",
+        "-D_FORTIFY_SOURCE=2",
+        "-Wformat",
+        "-Wformat-security",
+        "-O3",
+        "-DNDEBUG",
+        "-fPIC",
+        "-std=gnu++14",
+        "-DCL_TARGET_OPENCL_VERSION=210",
+        "-DCL_USE_DEPRECATED_OPENCL_1_1_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_1_2_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_0_APIS",
+        "-DGL_TARGET_OPENGL_VERSION=210",
+        "-DGMM_OCL",
+        "-DLIBVA",
+
+    ],
+
+    local_include_dirs: [
+        "runtime/sku_info/definitions",
+        "runtime/os_interface/definitions",
+        "runtime/command_stream/definitions",
+        "runtime/gen_common/reg_configs",
+        "runtime/gmm_helper",
+        "runtime/gmm_helper/client_context",
+        "runtime/gmm_helper/gmm_memory",
+        "runtime/mem_obj/definitions",
+        "runtime/memory_manager/definitions",
+        "runtime/instrumentation",
+        "elf",
+    ],
+
+    shared_libs: [
+        
+    ],
+
+    static_libs: [
+        
+    ],
+
+}

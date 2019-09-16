@@ -1,0 +1,108 @@
+cc_binary {
+    name: "ocloc",
+
+    vendor_available: true,
+
+    defaults: [
+        "neo-defaults",
+    ],
+
+    srcs: [
+        "offline_compiler/decoder/binary_decoder.cpp",
+        "offline_compiler/decoder/binary_encoder.cpp",
+        "offline_compiler/decoder/helper.cpp",
+        "offline_compiler/helper.cpp",
+        "offline_compiler/offline_compiler.cpp",
+        "offline_compiler/options.cpp",
+        "offline_compiler/../runtime/compiler_interface/create_main.cpp",
+        "offline_compiler/../runtime/helpers/abort.cpp",
+        "offline_compiler/../runtime/helpers/debug_helpers.cpp",
+        "offline_compiler/../runtime/helpers/file_io.cpp",
+        "offline_compiler/../runtime/helpers/hw_info.cpp",
+        "offline_compiler/../runtime/platform/extensions.cpp",
+        "offline_compiler/../runtime/os_interface/linux/os_library.cpp",
+        "offline_compiler/../runtime/dll/linux/options.cpp",
+        "offline_compiler/../runtime/gen8/hw_info_gen8.cpp",
+        "offline_compiler/../runtime/gen8/enable_gen8.cpp",
+        "offline_compiler/../runtime/gen9/hw_info_gen9.cpp",
+        "offline_compiler/../runtime/gen9/enable_gen9.cpp",
+        "offline_compiler/../runtime/gen10/hw_info_gen10.cpp",
+        "offline_compiler/../runtime/gen10/enable_gen10.cpp",
+        "offline_compiler/main.cpp",
+        "offline_compiler/utilities/linux/safety_caller_linux.cpp",
+    ],
+
+    cflags: [
+        
+    ],
+
+    cppflags: [
+        "-ftemplate-depth=1024",
+        "-Wall",
+        "-Wempty-body",
+        "-Wignored-qualifiers",
+        "-Wtype-limits",
+        "-Wuninitialized",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-Wno-unused-local-typedefs",
+        "-Wno-unused-but-set-variable",
+        "-fstack-protector-strong",
+        "-O2",
+        "-D_FORTIFY_SOURCE=2",
+        "-Wformat",
+        "-Wformat-security",
+        "-O3",
+        "-DNDEBUG",
+        "-std=gnu++14",
+        "-DCIF_HEADERS_ONLY_BUILD",
+        "-DCL_TARGET_OPENCL_VERSION=210",
+        "-DCL_USE_DEPRECATED_OPENCL_1_1_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_1_2_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_0_APIS",
+        "-DDEFAULT_PLATFORM=SKL",
+        "-DGL_TARGET_OPENGL_VERSION=210",
+        "-DGMM_OCL",
+        "-DLIBVA",
+        "-DMOCKABLE_VIRTUAL=",
+        "-DSUPPORT_BDW",
+        "-DSUPPORT_BXT",
+        "-DSUPPORT_CFL",
+        "-DSUPPORT_CNL",
+        "-DSUPPORT_GEN10",
+        "-DSUPPORT_GEN8",
+        "-DSUPPORT_GEN9",
+        "-DSUPPORT_GLK",
+        "-DSUPPORT_KBL",
+        "-DSUPPORT_SKL",
+
+    ],
+
+    local_include_dirs: [
+        "third_party/aub_stream/headers",
+        "runtime/gen_common",
+        "third_party/opencl_headers",
+        "third_party/opengl_headers",
+        "runtime/sku_info/definitions",
+        "runtime/os_interface/definitions",
+        "runtime/command_stream/definitions",
+        "runtime/gen_common/reg_configs",
+        "runtime/gmm_helper",
+        "runtime/gmm_helper/client_context",
+        "runtime/gmm_helper/gmm_memory",
+        "runtime/mem_obj/definitions",
+        "runtime/memory_manager/definitions",
+        "runtime/instrumentation",
+        "elf",
+    ],
+
+    shared_libs: [
+        
+    ],
+
+    static_libs: [
+        "libelflib",
+    ],
+
+}
