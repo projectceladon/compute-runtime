@@ -35,8 +35,8 @@ class Main:
         print("script = " + script)
         print("root = " + root)
 
-        # remove all middle & build files
-        print("It is removing build and middle-files for NEO ... ")
+        # remove all intermediate files and building directories
+        print("It is removing building directories and intermediate files for compute-runtime ... ")
         cmd = "rm -rf " + path.join(script, "__pycache__") + NOVERBOSE
         #cmd += "rm -rf " + path.join(script, "../device/") + NOVERBOSE
         cmd += "rm -rf " + path.join(root, BUILD_DIR) + NOVERBOSE
