@@ -4,7 +4,7 @@ cc_binary {
     vendor_available: true,
 
     defaults: [
-        "neo-defaults",
+        "compute-runtime-defaults",
     ],
 
     srcs: [
