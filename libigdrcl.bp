@@ -1,7 +1,7 @@
 cc_library_shared {
     name: "libigdrcl",
 
-    vendor_available: true,
+    vendor: true,
 
     defaults: [
         "compute-runtime-defaults",

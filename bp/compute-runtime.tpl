@@ -22,7 +22,7 @@
 cc_@module {
     name: "@name",
 
-    vendor_available: true,
+    vendor: true,
 
     defaults: [
 @defaults

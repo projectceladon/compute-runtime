@@ -21,7 +21,7 @@
 cc_defaults {
     name: "@name",
 
-    vendor_available: true,
+    vendor: true,
 
     cflags: [
 @cflags

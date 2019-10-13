@@ -1,7 +1,7 @@
 cc_binary {
     name: "ocloc_tests",
 
-    vendor_available: true,
+    vendor: true,
 
     defaults: [
         "compute-runtime-defaults",

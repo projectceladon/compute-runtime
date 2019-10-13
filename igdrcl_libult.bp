@@ -1,7 +1,7 @@
 cc_library_static {
     name: "igdrcl_libult",
 
-    vendor_available: true,
+    vendor: true,
 
     defaults: [
         "compute-runtime-defaults",

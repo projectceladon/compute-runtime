@@ -1,7 +1,7 @@
 cc_defaults {
     name: "compute-runtime-defaults",
 
-    vendor_available: true,
+    vendor: true,
 
     cflags: [
         
