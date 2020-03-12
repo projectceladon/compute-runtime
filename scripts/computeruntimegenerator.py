@@ -202,8 +202,8 @@ class Main:
         script = path.dirname(__file__)
         root = path.abspath(path.join(script, "../.."))
 
-        print("script = " + script)
-        print("root = " + root)
+        print(("script = " + script))
+        print(("root = " + root))
 
         ComputeRuntimeGenerator(root).generate(to_make = True)
 
