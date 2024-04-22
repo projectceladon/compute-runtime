@@ -29,6 +29,7 @@ struct ExecBuffer {
 struct GemCreate {
     uint64_t size;
     uint32_t handle;
+    uint32_t pad;
 };
 
 struct GemUserPtr {
@@ -71,6 +72,7 @@ struct GemContextParamSseu {
     uint64_t subsliceMask;
     uint16_t minEusPerSubslice;
     uint16_t maxEusPerSubslice;
+    uint32_t rsvd;
 };
 
 struct QueryTopologyInfo {

@@ -40,12 +40,12 @@ OsLibrary::OsLibrary(const std::string &name, std::string *errorValue) {
     if (name.empty()) {
         this->handle = SysCalls::dlopen(0, RTLD_LAZY);
     } else {
-#ifdef SANITIZER_BUILD
+//#ifdef SANITIZER_BUILD
         auto dlopenFlag = RTLD_LAZY;
-#else
-        auto dlopenFlag = RTLD_LAZY | RTLD_DEEPBIND;
-        /* Background: https://github.com/intel/compute-runtime/issues/122 */
-#endif
+//#else
+//        auto dlopenFlag = RTLD_LAZY | RTLD_DEEPBIND;
+//        /* Background: https://github.com/intel/compute-runtime/issues/122 */
+//#endif
         adjustLibraryFlags(dlopenFlag);
         this->handle = SysCalls::dlopen(name.c_str(), dlopenFlag);
         if (!this->handle && (errorValue != nullptr)) {
@@ -73,7 +73,7 @@ void *OsLibrary::getProcAddress(const std::string &procName) {
 
 std::string OsLibrary::getFullPath() {
     struct link_map *map = nullptr;
-    int retVal = NEO::SysCalls::dlinfo(this->handle, RTLD_DI_LINKMAP, &map);
+    int retVal = -1; //NEO::SysCalls::dlinfo(this->handle, RTLD_DI_LINKMAP, &map);
     if (retVal == 0 && map != nullptr) {
         return std::string(map->l_name);
     }
