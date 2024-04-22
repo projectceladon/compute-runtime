@@ -1,0 +1,109 @@
+cc_binary {
+    name: "ocloc",
+
+    vendor: true,
+
+    defaults: [
+        "compute-runtime-defaults",
+    ],
+
+    srcs: [
+        "shared/offline_compiler/source/main.cpp",
+    ],
+
+    cflags: [
+        
+    ],
+
+    cppflags: [
+        "-ftemplate-depth=1024",
+        "-mclflushopt",
+        "-mwaitpkg",
+        "-Wall",
+        "-Wempty-body",
+        "-Wignored-qualifiers",
+        "-Wtype-limits",
+        "-Wuninitialized",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-Winvalid-pch",
+        "-Wno-unknown-pragmas",
+        "-Wno-unused-local-typedefs",
+        "-Werror=vla",
+        "-fstack-protector-strong",
+        "-O2",
+        "-D_FORTIFY_SOURCE=2",
+        "-Wformat",
+        "-Wformat-security",
+        "-O3",
+        "-DNDEBUG",
+        "-std=gnu++17",
+        "-DALL_SUPPORTED_PRODUCT_FAMILIES=IGFX_TIGERLAKE_LP,IGFX_DG1,IGFX_ROCKETLAKE,IGFX_ALDERLAKE_S,IGFX_ALDERLAKE_P,IGFX_ALDERLAKE_N,IGFX_METEORLAKE,IGFX_DG2,IGFX_ARROWLAKE,IGFX_PVC",
+        "-DCIF_HEADERS_ONLY_BUILD",
+        "-DCL_TARGET_OPENCL_VERSION=300",
+        "-DCL_USE_DEPRECATED_OPENCL_1_1_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_1_2_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_0_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_1_APIS",
+        "-DCL_USE_DEPRECATED_OPENCL_2_2_APIS",
+        "-DDEFAULT_PLATFORM=PVC",
+        "-DGL_TARGET_OPENGL_VERSION=210",
+        "-DGMM_OCL",
+        "-DIGA_LIBRARY_NAME=\"libiga64.so\"",
+        "-DLIBVA",
+        "-DPURGE_DEBUG_KEY_NAMES=0",
+        "-DSUPPORTS_CLFLUSHOPT",
+        "-DSUPPORTS_WAITPKG",
+        "-DSUPPORT_ADLN",
+        "-DSUPPORT_ADLP",
+        "-DSUPPORT_ADLS",
+        "-DSUPPORT_ARL",
+        "-DSUPPORT_DG1",
+        "-DSUPPORT_DG2",
+        "-DSUPPORT_GEN12LP",
+        "-DSUPPORT_MTL",
+        "-DSUPPORT_PVC",
+        "-DSUPPORT_RKL",
+        "-DSUPPORT_TGLLP",
+        "-DSUPPORT_XE_HPC_CORE",
+        "-DSUPPORT_XE_HPG_CORE",
+        "-D__packed=",
+        "-D__user=",
+
+    ],
+
+    local_include_dirs: [
+        "third_party",
+        "third_party/metrics_library",
+        "third_party/metrics_discovery",
+        "shared/source/aub_mem_dump/definitions",
+        "shared/source/built_ins/builtinops",
+        "shared/source/command_container/definitions",
+        "shared/source/command_stream/definitions",
+        "shared/source/debug_settings/definitions",
+        "shared/source/dll/devices",
+        "shared/source/kernel/definitions",
+        "shared/source/gen_common",
+        "third_party/uapi",
+        "shared/source/gmm_helper/windows/gmm_memory",
+        "third_party/uapi/prelim",
+        "shared/source/helpers/definitions",
+        "shared/source/memory_properties",
+        "shared/source/release_helper/definitions",
+        "shared/source/sku_info/definitions",
+        "shared/source/gen12lp/definitions",
+        "opencl/source/gen12lp/definitions",
+        "shared/source/xe_hpg_core/definitions",
+        "shared/source/xe_hpg_core/dg2/definitions",
+    ],
+
+    shared_libs: [
+        
+    ],
+
+    static_libs: [
+        
+    ],
+
+}
