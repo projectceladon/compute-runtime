@@ -29,6 +29,7 @@ struct ExecBuffer {
 struct GemCreate {
     uint64_t size;
     uint32_t handle;
+    uint32_t pad;
 };
 
 struct GemUserPtr {
