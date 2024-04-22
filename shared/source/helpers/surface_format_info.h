@@ -263,7 +263,11 @@ struct ImageImplicitArgs {
     static constexpr uint8_t getSize() { return sizeof(ImageImplicitArgs); }
 };
 
+#ifdef __x86_64__
 static_assert(ImageImplicitArgs::getSize() == 88);
+#else
+static_assert(ImageImplicitArgs::getSize() == 84);
+#endif
 
 struct McsSurfaceInfo {
     uint32_t pitch;
