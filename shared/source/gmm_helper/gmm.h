@@ -1,0 +1,87 @@
+/*
+ * Copyright (C) 2018-2024 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#pragma once
+#include "shared/source/gmm_helper/gmm_lib.h"
+
+#include <cstdint>
+#include <memory>
+
+namespace NEO {
+enum class ImagePlane;
+struct HardwareInfo;
+struct ImageInfo;
+struct StorageInfo;
+class GmmResourceInfo;
+class GmmHelper;
+
+template <typename OverriddenType>
+struct Overrider {
+    bool enableOverride{false};
+    OverriddenType value;
+
+    void doOverride(OverriddenType &variable) const {
+        if (enableOverride) {
+            variable = value;
+        }
+    }
+};
+
+struct GmmRequirements {
+    bool preferCompressed;
+    bool allowLargePages;
+    Overrider<bool> overriderCacheable;
+};
+
+class Gmm {
+  public:
+    virtual ~Gmm();
+    Gmm() = delete;
+    Gmm(GmmHelper *gmmHelper, ImageInfo &inputOutputImgInfo, const StorageInfo &storageInfo, bool preferCompressed);
+    Gmm(GmmHelper *gmmHelper, const void *alignedPtr, size_t alignedSize, size_t alignment,
+        GMM_RESOURCE_USAGE_TYPE_ENUM gmmResourceUsage, const StorageInfo &storageInfo, const GmmRequirements &gmmRequirements);
+    Gmm(GmmHelper *gmmHelper, GMM_RESOURCE_INFO *inputGmm);
+    Gmm(GmmHelper *gmmHelper, GMM_RESOURCE_INFO *inputGmm, bool openingHandle);
+
+    void queryImageParams(ImageInfo &inputOutputImgInfo);
+
+    void applyAuxFlagsForBuffer(bool preferCompression);
+    void applyMemoryFlags(const StorageInfo &storageInfo);
+    void applyAppResource(const StorageInfo &storageInfo);
+
+    bool unifiedAuxTranslationCapable() const;
+    bool hasMultisampleControlSurface() const;
+
+    GmmHelper *getGmmHelper() const;
+
+    uint32_t queryQPitch(GMM_RESOURCE_TYPE resType);
+    void updateImgInfoAndDesc(ImageInfo &imgInfo, uint32_t arrayIndex, ImagePlane yuvPlaneType);
+    void updateOffsetsInImgInfo(ImageInfo &imgInfo, uint32_t arrayIndex);
+    uint8_t resourceCopyBlt(void *sys, void *gpu, uint32_t pitch, uint32_t height, unsigned char upload, ImagePlane plane);
+
+    uint32_t getUnifiedAuxPitchTiles();
+    uint32_t getAuxQPitch();
+    bool getPreferNoCpuAccess() const { return preferNoCpuAccess; }
+
+    GMM_RESCREATE_PARAMS resourceParams = {};
+    std::unique_ptr<GmmResourceInfo> gmmResourceInfo;
+
+    const char *getUsageTypeString();
+
+    bool isCompressionEnabled = false;
+
+  protected:
+    void applyAuxFlagsForImage(ImageInfo &imgInfo, bool preferCompressed);
+    void setupImageResourceParams(ImageInfo &imgInfo, bool preferCompressed);
+    bool extraMemoryFlagsRequired();
+    void applyExtraMemoryFlags(const StorageInfo &storageInfo);
+    void applyDebugOverrides();
+    GmmHelper *gmmHelper = nullptr;
+
+    bool preferNoCpuAccess = false;
+};
+} // namespace NEO

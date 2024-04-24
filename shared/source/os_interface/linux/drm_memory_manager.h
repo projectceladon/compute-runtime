@@ -1,0 +1,178 @@
+/*
+ * Copyright (C) 2018-2024 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#pragma once
+#include "shared/source/memory_manager/memory_manager.h"
+#include "shared/source/os_interface/linux/drm_buffer_object.h"
+
+#include <limits>
+#include <map>
+#include <sys/mman.h>
+#include <unistd.h>
+
+namespace NEO {
+class BufferObject;
+class Drm;
+class DrmGemCloseWorker;
+class DrmAllocation;
+class OsContextLinux;
+enum class AtomicAccessMode : uint32_t;
+
+enum class GemCloseWorkerMode;
+
+class DrmMemoryManager : public MemoryManager {
+  public:
+    DrmMemoryManager(GemCloseWorkerMode mode,
+                     bool forcePinAllowed,
+                     bool validateHostPtrMemory,
+                     ExecutionEnvironment &executionEnvironment);
+    ~DrmMemoryManager() override;
+
+    void initialize(GemCloseWorkerMode mode);
+    void addAllocationToHostPtrManager(GraphicsAllocation *gfxAllocation) override;
+    void removeAllocationFromHostPtrManager(GraphicsAllocation *gfxAllocation) override;
+    void freeGraphicsMemoryImpl(GraphicsAllocation *gfxAllocation) override;
+    void freeGraphicsMemoryImpl(GraphicsAllocation *gfxAllocation, bool isImportedAllocation) override;
+    void handleFenceCompletion(GraphicsAllocation *allocation) override;
+    GraphicsAllocation *createGraphicsAllocationFromExistingStorage(AllocationProperties &properties, void *ptr, MultiGraphicsAllocation &multiGraphicsAllocation) override;
+    GraphicsAllocation *createGraphicsAllocationFromMultipleSharedHandles(const std::vector<osHandle> &handles, AllocationProperties &properties, bool requireSpecificBitness, bool isHostIpcAllocation, bool reuseSharedAllocation, void *mapPointer) override;
+    GraphicsAllocation *createGraphicsAllocationFromSharedHandle(osHandle handle, const AllocationProperties &properties, bool requireSpecificBitness, bool isHostIpcAllocation, bool reuseSharedAllocation, void *mapPointer) override;
+    void closeSharedHandle(GraphicsAllocation *gfxAllocation) override;
+    void closeInternalHandle(uint64_t &handle, uint32_t handleId, GraphicsAllocation *graphicsAllocation) override;
+
+    GraphicsAllocation *createGraphicsAllocationFromNTHandle(void *handle, uint32_t rootDeviceIndex, AllocationType allocType) override { return nullptr; }
+
+    uint64_t getSystemSharedMemory(uint32_t rootDeviceIndex) override;
+    uint64_t getLocalMemorySize(uint32_t rootDeviceIndex, uint32_t deviceBitfield) override;
+    double getPercentOfGlobalMemoryAvailable(uint32_t rootDeviceIndex) override;
+
+    AllocationStatus populateOsHandles(OsHandleStorage &handleStorage, uint32_t rootDeviceIndex) override;
+    void cleanOsHandles(OsHandleStorage &handleStorage, uint32_t rootDeviceIndex) override;
+    void commonCleanup() override;
+
+    // drm/i915 ioctl wrappers
+    MOCKABLE_VIRTUAL uint32_t unreference(BufferObject *bo, bool synchronousDestroy);
+
+    void registerIpcExportedAllocation(GraphicsAllocation *graphicsAllocation) override;
+
+    bool isValidateHostMemoryEnabled() const {
+        return validateHostPtrMemory;
+    }
+
+    DrmGemCloseWorker *peekGemCloseWorker() const { return this->gemCloseWorker.get(); }
+    bool copyMemoryToAllocation(GraphicsAllocation *graphicsAllocation, size_t destinationOffset, const void *memoryToCopy, size_t sizeToCopy) override;
+    bool copyMemoryToAllocationBanks(GraphicsAllocation *graphicsAllocation, size_t destinationOffset, const void *memoryToCopy, size_t sizeToCopy, DeviceBitfield handleMask) override;
+
+    MOCKABLE_VIRTUAL int obtainFdFromHandle(int boHandle, uint32_t rootDeviceindex);
+    AddressRange reserveGpuAddress(const uint64_t requiredStartAddress, size_t size, RootDeviceIndicesContainer rootDeviceIndices, uint32_t *reservedOnRootDeviceIndex) override;
+    AddressRange reserveGpuAddressOnHeap(const uint64_t requiredStartAddress, size_t size, RootDeviceIndicesContainer rootDeviceIndices, uint32_t *reservedOnRootDeviceIndex, HeapIndex heap, size_t alignment) override;
+    size_t selectAlignmentAndHeap(size_t size, HeapIndex *heap) override;
+    void freeGpuAddress(AddressRange addressRange, uint32_t rootDeviceIndex) override;
+    MOCKABLE_VIRTUAL BufferObject *createBufferObjectInMemoryRegion(uint32_t rootDeviceIndex, Gmm *gmm, AllocationType allocationType, uint64_t gpuAddress, size_t size,
+                                                                    uint32_t memoryBanks, size_t maxOsContextCount, int32_t pairHandle, bool isSystemMemoryPool, bool isUsmHostAllocation);
+
+    bool hasPageFaultsEnabled(const Device &neoDevice) override;
+    bool isKmdMigrationAvailable(uint32_t rootDeviceIndex) override;
+
+    bool setMemAdvise(GraphicsAllocation *gfxAllocation, MemAdviseFlags flags, uint32_t rootDeviceIndex) override;
+    bool setMemPrefetch(GraphicsAllocation *gfxAllocation, SubDeviceIdsVec &subDeviceIds, uint32_t rootDeviceIndex) override;
+    bool setAtomicAccess(GraphicsAllocation *gfxAllocation, size_t size, AtomicAccessMode mode, uint32_t rootDeviceIndex) override;
+    [[nodiscard]] std::unique_lock<std::mutex> acquireAllocLock();
+    std::vector<GraphicsAllocation *> &getSysMemAllocs();
+    std::vector<GraphicsAllocation *> &getLocalMemAllocs(uint32_t rootDeviceIndex);
+    AllocationStatus registerSysMemAlloc(GraphicsAllocation *allocation) override;
+    AllocationStatus registerLocalMemAlloc(GraphicsAllocation *allocation, uint32_t rootDeviceIndex) override;
+    void unregisterAllocation(GraphicsAllocation *allocation);
+
+    static std::unique_ptr<MemoryManager> create(ExecutionEnvironment &executionEnvironment);
+
+    DrmAllocation *createUSMHostAllocationFromSharedHandle(osHandle handle, const AllocationProperties &properties, void *mappedPtr, bool reuseSharedAllocation);
+    void releaseDeviceSpecificMemResources(uint32_t rootDeviceIndex) override;
+    void createDeviceSpecificMemResources(uint32_t rootDeviceIndex) override;
+    bool allowIndirectAllocationsAsPack(uint32_t rootDeviceIndex) override;
+    Drm &getDrm(uint32_t rootDeviceIndex) const;
+    size_t getSizeOfChunk(size_t allocSize);
+    bool checkAllocationForChunking(size_t allocSize, size_t minSize, bool subDeviceEnabled, bool debugDisabled, bool modeEnabled, bool bufferEnabled);
+
+  protected:
+    void registerSharedBoHandleAllocation(DrmAllocation *drmAllocation);
+    BufferObjectHandleWrapper tryToGetBoHandleWrapperWithSharedOwnership(int boHandle);
+    void eraseSharedBoHandleWrapper(int boHandle);
+
+    MOCKABLE_VIRTUAL BufferObject *findAndReferenceSharedBufferObject(int boHandle, uint32_t rootDeviceIndex);
+    void eraseSharedBufferObject(BufferObject *bo);
+    void pushSharedBufferObject(BufferObject *bo);
+    BufferObject *allocUserptr(uintptr_t address, size_t size, uint32_t rootDeviceIndex);
+    bool setDomainCpu(GraphicsAllocation &graphicsAllocation, bool writeEnable);
+    MOCKABLE_VIRTUAL uint64_t acquireGpuRange(size_t &size, uint32_t rootDeviceIndex, HeapIndex heapIndex);
+    MOCKABLE_VIRTUAL uint64_t acquireGpuRangeWithCustomAlignment(size_t &size, uint32_t rootDeviceIndex, HeapIndex heapIndex, size_t alignment);
+    MOCKABLE_VIRTUAL void releaseGpuRange(void *address, size_t size, uint32_t rootDeviceIndex);
+    void emitPinningRequest(BufferObject *bo, const AllocationData &allocationData) const;
+    uint32_t getDefaultDrmContextId(uint32_t rootDeviceIndex) const;
+    OsContextLinux *getDefaultOsContext(uint32_t rootDeviceIndex) const;
+    size_t getUserptrAlignment();
+
+    GraphicsAllocation *createGraphicsAllocation(OsHandleStorage &handleStorage, const AllocationData &allocationData) override;
+    GraphicsAllocation *allocateGraphicsMemoryForNonSvmHostPtr(const AllocationData &allocationData) override;
+    GraphicsAllocation *allocateGraphicsMemoryWithAlignment(const AllocationData &allocationData) override;
+    DrmAllocation *allocateGraphicsMemoryWithAlignmentImpl(const AllocationData &allocationData);
+    DrmAllocation *createAllocWithAlignmentFromUserptr(const AllocationData &allocationData, size_t size, size_t alignment, size_t alignedSVMSize, uint64_t gpuAddress);
+    DrmAllocation *createAllocWithAlignment(const AllocationData &allocationData, size_t size, size_t alignment, size_t alignedSize, uint64_t gpuAddress);
+    DrmAllocation *createMultiHostAllocation(const AllocationData &allocationData);
+    void obtainGpuAddress(const AllocationData &allocationData, BufferObject *bo, uint64_t gpuAddress);
+    GraphicsAllocation *allocateUSMHostGraphicsMemory(const AllocationData &allocationData) override;
+    GraphicsAllocation *allocateGraphicsMemoryWithHostPtr(const AllocationData &allocationData) override;
+    GraphicsAllocation *allocateGraphicsMemory64kb(const AllocationData &allocationData) override;
+    GraphicsAllocation *allocateMemoryByKMD(const AllocationData &allocationData) override;
+    GraphicsAllocation *allocatePhysicalDeviceMemory(const AllocationData &allocationData, AllocationStatus &status) override;
+    GraphicsAllocation *allocatePhysicalLocalDeviceMemory(const AllocationData &allocationData, AllocationStatus &status) override;
+    bool mapPhysicalToVirtualMemory(GraphicsAllocation *physicalAllocation, uint64_t gpuRange, size_t bufferSize) override;
+    void unMapPhysicalToVirtualMemory(GraphicsAllocation *physicalAllocation, uint64_t gpuRange, size_t bufferSize, OsContext *osContext, uint32_t rootDeviceIndex) override;
+    GraphicsAllocation *allocateGraphicsMemoryForImageImpl(const AllocationData &allocationData, std::unique_ptr<Gmm> gmm) override;
+    GraphicsAllocation *allocateGraphicsMemoryWithGpuVa(const AllocationData &allocationData) override;
+    GraphicsAllocation *createSharedUnifiedMemoryAllocation(const AllocationData &allocationData);
+
+    void *lockResourceImpl(GraphicsAllocation &graphicsAllocation) override;
+    MOCKABLE_VIRTUAL void *lockBufferObject(BufferObject *bo);
+    MOCKABLE_VIRTUAL void unlockBufferObject(BufferObject *bo);
+    void unlockResourceImpl(GraphicsAllocation &graphicsAllocation) override;
+    GraphicsAllocation *allocate32BitGraphicsMemoryImpl(const AllocationData &allocationData) override;
+    void cleanupBeforeReturn(const AllocationData &allocationData, GfxPartition *gfxPartition, DrmAllocation *drmAllocation, GraphicsAllocation *graphicsAllocation, uint64_t &gpuAddress, size_t &sizeAllocated);
+    GraphicsAllocation *allocateGraphicsMemoryInDevicePool(const AllocationData &allocationData, AllocationStatus &status) override;
+    bool createDrmChunkedAllocation(Drm *drm, DrmAllocation *allocation, uint64_t boAddress, size_t boSize, size_t maxOsContextCount);
+    bool createDrmAllocation(Drm *drm, DrmAllocation *allocation, uint64_t gpuAddress, size_t maxOsContextCount);
+    void registerAllocationInOs(GraphicsAllocation *allocation) override;
+    void waitOnCompletionFence(GraphicsAllocation *allocation);
+    bool allocationTypeForCompletionFence(AllocationType allocationType);
+    bool makeAllocationResident(GraphicsAllocation *allocation);
+
+    inline std::unique_ptr<Gmm> makeGmmIfSingleHandle(const AllocationData &allocationData, size_t sizeAligned);
+    inline std::unique_ptr<DrmAllocation> makeDrmAllocation(const AllocationData &allocationData, std::unique_ptr<Gmm> gmm, uint64_t gpuAddress, size_t sizeAligned);
+    uint32_t getRootDeviceIndex(const Drm *drm);
+    BufferObject *createRootDeviceBufferObject(uint32_t rootDeviceIndex);
+    void releaseBufferObject(uint32_t rootDeviceIndex);
+    bool retrieveMmapOffsetForBufferObject(uint32_t rootDeviceIndex, BufferObject &bo, uint64_t flags, uint64_t &offset);
+    BufferObject::BOType getBOTypeFromPatIndex(uint64_t patIndex, bool isPatIndexSupported) const;
+
+    std::vector<BufferObject *> pinBBs;
+    std::vector<void *> memoryForPinBBs;
+    size_t pinThreshold = 8 * 1024 * 1024;
+    bool forcePinEnabled = false;
+    const bool validateHostPtrMemory;
+    std::unique_ptr<DrmGemCloseWorker> gemCloseWorker;
+    decltype(&mmap) mmapFunction = mmap;
+    decltype(&munmap) munmapFunction = munmap;
+    decltype(&close) closeFunction = close;
+    std::vector<BufferObject *> sharingBufferObjects;
+    std::mutex mtx;
+
+    std::map<int, BufferObjectHandleWrapper> sharedBoHandles;
+    std::vector<std::vector<GraphicsAllocation *>> localMemAllocs;
+    std::vector<GraphicsAllocation *> sysMemAllocs;
+    std::mutex allocMutex;
+};
+} // namespace NEO

@@ -1,0 +1,47 @@
+/*
+ * Copyright (C) 2021-2024 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#include "shared/source/execution_environment/root_device_environment.h"
+#include "shared/source/os_interface/product_helper.h"
+#include "shared/source/xe_hpc_core/hw_cmds_xe_hpc_core_base.h"
+#include "shared/source/xe_hpc_core/hw_info.h"
+#include "shared/test/common/helpers/unit_test_helper.h"
+#include "shared/test/common/helpers/unit_test_helper.inl"
+#include "shared/test/common/helpers/unit_test_helper_xe_hpc_and_later.inl"
+#include "shared/test/common/helpers/unit_test_helper_xe_hpg_and_xe_hpc.inl"
+#include "shared/test/common/helpers/unit_test_helper_xehp_and_later.inl"
+
+using Family = NEO::XeHpcCoreFamily;
+
+#include "unit_test_helper_xe_hpc_core_extra.inl"
+
+namespace NEO {
+
+template <>
+bool UnitTestHelper<Family>::requiresTimestampPacketsInSystemMemory(HardwareInfo &hwInfo) {
+    return false;
+}
+
+template <>
+bool UnitTestHelper<Family>::isAdditionalMiSemaphoreWaitRequired(const RootDeviceEnvironment &rootDeviceEnvironment) {
+    const auto &productHelper = rootDeviceEnvironment.getHelper<ProductHelper>();
+    auto &hwInfo = *rootDeviceEnvironment.getHardwareInfo();
+    auto programGlobalFenceAsMiMemFenceCommandInCommandStream = productHelper.isGlobalFenceInCommandStreamRequired(hwInfo);
+    if (debugManager.flags.ProgramGlobalFenceAsMiMemFenceCommandInCommandStream.get() != -1) {
+        programGlobalFenceAsMiMemFenceCommandInCommandStream = !!debugManager.flags.ProgramGlobalFenceAsMiMemFenceCommandInCommandStream.get();
+    }
+    return !programGlobalFenceAsMiMemFenceCommandInCommandStream;
+}
+
+template <>
+bool UnitTestHelper<Family>::getComputeDispatchAllWalkerFromFrontEndCommand(const typename Family::FrontEndStateCommand &feCmd) {
+    return feCmd.getComputeDispatchAllWalkerEnable();
+}
+
+template struct UnitTestHelper<Family>;
+
+} // namespace NEO

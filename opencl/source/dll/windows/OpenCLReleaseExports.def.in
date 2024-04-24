@@ -1,0 +1,13 @@
+;
+; Copyright (C) 2017-2021 Intel Corporation
+;
+; SPDX-License-Identifier: MIT
+;
+
+; ${MSVC_DEF_HEADER}
+
+LIBRARY    "${MSVC_DEF_LIB_NAME}"
+EXPORTS
+clGetPlatformInfo
+clGetExtensionFunctionAddress
+${MSVC_DEF_ADDITIONAL_EXPORTS}

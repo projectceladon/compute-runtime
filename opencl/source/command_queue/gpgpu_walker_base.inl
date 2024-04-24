@@ -1,0 +1,264 @@
+/*
+ * Copyright (C) 2018-2023 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#pragma once
+#include "shared/source/command_container/command_encoder.h"
+#include "shared/source/command_stream/command_stream_receiver.h"
+#include "shared/source/helpers/aligned_memory.h"
+#include "shared/source/helpers/engine_node_helper.h"
+#include "shared/source/helpers/gfx_core_helper.h"
+#include "shared/source/helpers/timestamp_packet.h"
+#include "shared/source/os_interface/os_context.h"
+#include "shared/source/utilities/tag_allocator.h"
+
+#include "opencl/source/command_queue/command_queue.h"
+#include "opencl/source/command_queue/command_queue_hw.h"
+#include "opencl/source/command_queue/gpgpu_walker.h"
+#include "opencl/source/event/user_event.h"
+#include "opencl/source/helpers/queue_helpers.h"
+
+namespace NEO {
+
+// Performs ReadModifyWrite operation on value of a register: Register = Register Operation Mask
+template <typename GfxFamily>
+void GpgpuWalkerHelper<GfxFamily>::addAluReadModifyWriteRegister(
+    LinearStream *pCommandStream,
+    uint32_t aluRegister,
+    AluRegisters operation,
+    uint32_t mask) {
+    // Load "Register" value into CS_GPR_R0
+    using MI_LOAD_REGISTER_REG = typename GfxFamily::MI_LOAD_REGISTER_REG;
+    using MI_MATH = typename GfxFamily::MI_MATH;
+    using MI_MATH_ALU_INST_INLINE = typename GfxFamily::MI_MATH_ALU_INST_INLINE;
+
+    auto pCmd = pCommandStream->getSpaceForCmd<MI_LOAD_REGISTER_REG>();
+    MI_LOAD_REGISTER_REG cmdReg = GfxFamily::cmdInitLoadRegisterReg;
+    cmdReg.setSourceRegisterAddress(aluRegister);
+    cmdReg.setDestinationRegisterAddress(RegisterOffsets::csGprR0);
+    *pCmd = cmdReg;
+
+    // Load "Mask" into CS_GPR_R1
+    LriHelper<GfxFamily>::program(pCommandStream,
+                                  RegisterOffsets::csGprR1,
+                                  mask,
+                                  false);
+
+    // Add instruction MI_MATH with 4 MI_MATH_ALU_INST_INLINE operands
+    auto pCmd3 = reinterpret_cast<uint32_t *>(pCommandStream->getSpace(sizeof(MI_MATH) + RegisterConstants::numAluInstForReadModifyWrite * sizeof(MI_MATH_ALU_INST_INLINE)));
+    MI_MATH mathCmd;
+    mathCmd.DW0.Value = 0x0;
+    mathCmd.DW0.BitField.InstructionType = MI_MATH::COMMAND_TYPE_MI_COMMAND;
+    mathCmd.DW0.BitField.InstructionOpcode = MI_MATH::MI_COMMAND_OPCODE_MI_MATH;
+    // 0x3 - 5 Dwords length cmd (-2): 1 for MI_MATH, 4 for MI_MATH_ALU_INST_INLINE
+    mathCmd.DW0.BitField.DwordLength = RegisterConstants::numAluInstForReadModifyWrite - 1;
+    *reinterpret_cast<MI_MATH *>(pCmd3) = mathCmd;
+
+    pCmd3++;
+    MI_MATH_ALU_INST_INLINE *pAluParam = reinterpret_cast<MI_MATH_ALU_INST_INLINE *>(pCmd3);
+    MI_MATH_ALU_INST_INLINE cmdAluParam;
+    cmdAluParam.DW0.Value = 0x0;
+
+    // Setup first operand of MI_MATH - load CS_GPR_R0 into register A
+    cmdAluParam.DW0.BitField.ALUOpcode =
+        static_cast<uint32_t>(AluRegisters::opcodeLoad);
+    cmdAluParam.DW0.BitField.Operand1 =
+        static_cast<uint32_t>(AluRegisters::srca);
+    cmdAluParam.DW0.BitField.Operand2 =
+        static_cast<uint32_t>(AluRegisters::gpr0);
+    *pAluParam = cmdAluParam;
+    pAluParam++;
+
+    cmdAluParam.DW0.Value = 0x0;
+    // Setup second operand of MI_MATH - load CS_GPR_R1 into register B
+    cmdAluParam.DW0.BitField.ALUOpcode =
+        static_cast<uint32_t>(AluRegisters::opcodeLoad);
+    cmdAluParam.DW0.BitField.Operand1 =
+        static_cast<uint32_t>(AluRegisters::srcb);
+    cmdAluParam.DW0.BitField.Operand2 =
+        static_cast<uint32_t>(AluRegisters::gpr1);
+    *pAluParam = cmdAluParam;
+    pAluParam++;
+
+    cmdAluParam.DW0.Value = 0x0;
+    // Setup third operand of MI_MATH - "Operation" on registers A and B
+    cmdAluParam.DW0.BitField.ALUOpcode = static_cast<uint32_t>(operation);
+    cmdAluParam.DW0.BitField.Operand1 = 0;
+    cmdAluParam.DW0.BitField.Operand2 = 0;
+    *pAluParam = cmdAluParam;
+    pAluParam++;
+
+    cmdAluParam.DW0.Value = 0x0;
+    // Setup fourth operand of MI_MATH - store result into CS_GPR_R0
+    cmdAluParam.DW0.BitField.ALUOpcode =
+        static_cast<uint32_t>(AluRegisters::opcodeStore);
+    cmdAluParam.DW0.BitField.Operand1 =
+        static_cast<uint32_t>(AluRegisters::gpr0);
+    cmdAluParam.DW0.BitField.Operand2 =
+        static_cast<uint32_t>(AluRegisters::accu);
+    *pAluParam = cmdAluParam;
+
+    // LOAD value of CS_GPR_R0 into "Register"
+    auto pCmd4 = pCommandStream->getSpaceForCmd<MI_LOAD_REGISTER_REG>();
+    cmdReg = GfxFamily::cmdInitLoadRegisterReg;
+    cmdReg.setSourceRegisterAddress(RegisterOffsets::csGprR0);
+    cmdReg.setDestinationRegisterAddress(aluRegister);
+    *pCmd4 = cmdReg;
+
+    // Add PIPE_CONTROL to flush caches
+    auto pCmd5 = pCommandStream->getSpaceForCmd<PIPE_CONTROL>();
+    PIPE_CONTROL cmdPipeControl = GfxFamily::cmdInitPipeControl;
+    cmdPipeControl.setCommandStreamerStallEnable(true);
+    cmdPipeControl.setDcFlushEnable(true);
+    cmdPipeControl.setTextureCacheInvalidationEnable(true);
+    cmdPipeControl.setPipeControlFlushEnable(true);
+    cmdPipeControl.setStateCacheInvalidationEnable(true);
+    *pCmd5 = cmdPipeControl;
+}
+
+template <typename GfxFamily>
+void GpgpuWalkerHelper<GfxFamily>::dispatchPerfCountersCommandsStart(
+    CommandQueue &commandQueue,
+    TagNodeBase &hwPerfCounter,
+    LinearStream *commandStream) {
+
+    const auto pPerformanceCounters = commandQueue.getPerfCounters();
+    const auto commandBufferType = EngineHelpers::isCcs(commandQueue.getGpgpuEngine().osContext->getEngineType())
+                                       ? MetricsLibraryApi::GpuCommandBufferType::Compute
+                                       : MetricsLibraryApi::GpuCommandBufferType::Render;
+    const uint32_t size = pPerformanceCounters->getGpuCommandsSize(commandBufferType, true);
+    void *pBuffer = commandStream->getSpace(size);
+
+    pPerformanceCounters->getGpuCommands(commandBufferType, hwPerfCounter, true, size, pBuffer);
+}
+
+template <typename GfxFamily>
+void GpgpuWalkerHelper<GfxFamily>::dispatchPerfCountersCommandsEnd(
+    CommandQueue &commandQueue,
+    TagNodeBase &hwPerfCounter,
+    LinearStream *commandStream) {
+
+    const auto pPerformanceCounters = commandQueue.getPerfCounters();
+    const auto commandBufferType = EngineHelpers::isCcs(commandQueue.getGpgpuEngine().osContext->getEngineType())
+                                       ? MetricsLibraryApi::GpuCommandBufferType::Compute
+                                       : MetricsLibraryApi::GpuCommandBufferType::Render;
+    const uint32_t size = pPerformanceCounters->getGpuCommandsSize(commandBufferType, false);
+    void *pBuffer = commandStream->getSpace(size);
+
+    pPerformanceCounters->getGpuCommands(commandBufferType, hwPerfCounter, false, size, pBuffer);
+}
+
+template <typename GfxFamily>
+void GpgpuWalkerHelper<GfxFamily>::applyWADisableLSQCROPERFforOCL(NEO::LinearStream *pCommandStream, const Kernel &kernel, bool disablePerfMode) {
+}
+
+template <typename GfxFamily>
+size_t GpgpuWalkerHelper<GfxFamily>::getSizeForWADisableLSQCROPERFforOCL(const Kernel *pKernel) {
+    return (size_t)0;
+}
+
+template <typename GfxFamily>
+size_t GpgpuWalkerHelper<GfxFamily>::getSizeForWaDisableRccRhwoOptimization(const Kernel *pKernel) {
+    return 0u;
+}
+
+template <typename GfxFamily>
+size_t EnqueueOperation<GfxFamily>::getTotalSizeRequiredCS(uint32_t eventType, const CsrDependencies &csrDeps, bool reserveProfilingCmdsSpace, bool reservePerfCounters, bool blitEnqueue, CommandQueue &commandQueue, const MultiDispatchInfo &multiDispatchInfo, bool isMarkerWithProfiling, bool eventsInWaitlist, bool resolveDependenciesByPipecontrol, cl_event *outEvent) {
+    size_t expectedSizeCS = 0;
+    auto &gfxCoreHelper = commandQueue.getDevice().getGfxCoreHelper();
+
+    auto &commandQueueHw = static_cast<CommandQueueHw<GfxFamily> &>(commandQueue);
+    auto &rootDeviceEnvironment = commandQueue.getDevice().getRootDeviceEnvironment();
+
+    if (blitEnqueue) {
+        size_t expectedSizeCS = TimestampPacketHelper::getRequiredCmdStreamSizeForNodeDependencyWithBlitEnqueue<GfxFamily>();
+        if (commandQueueHw.isCacheFlushForBcsRequired()) {
+            expectedSizeCS += MemorySynchronizationCommands<GfxFamily>::getSizeForBarrierWithPostSyncOperation(rootDeviceEnvironment, false);
+        }
+
+        return expectedSizeCS;
+    }
+
+    for (auto &dispatchInfo : multiDispatchInfo) {
+        expectedSizeCS += EnqueueOperation<GfxFamily>::getSizeRequiredCS(eventType, reserveProfilingCmdsSpace, reservePerfCounters, commandQueue, dispatchInfo.getKernel(), dispatchInfo);
+        size_t kernelObjAuxCount = multiDispatchInfo.getKernelObjsForAuxTranslation() != nullptr ? multiDispatchInfo.getKernelObjsForAuxTranslation()->size() : 0;
+        expectedSizeCS += dispatchInfo.dispatchInitCommands.estimateCommandsSize(kernelObjAuxCount, rootDeviceEnvironment, commandQueueHw.isCacheFlushForBcsRequired());
+        expectedSizeCS += dispatchInfo.dispatchEpilogueCommands.estimateCommandsSize(kernelObjAuxCount, rootDeviceEnvironment, commandQueueHw.isCacheFlushForBcsRequired());
+    }
+
+    auto relaxedOrderingEnabled = commandQueue.getGpgpuCommandStreamReceiver().directSubmissionRelaxedOrderingEnabled();
+
+    if (relaxedOrderingEnabled) {
+        expectedSizeCS += 2 * EncodeSetMMIO<GfxFamily>::sizeREG;
+    }
+
+    if (commandQueue.getGpgpuCommandStreamReceiver().peekTimestampPacketWriteEnabled()) {
+        // add relaxed ordering cond_bb_start
+        expectedSizeCS += TimestampPacketHelper::getRequiredCmdStreamSize<GfxFamily>(csrDeps, relaxedOrderingEnabled);
+        expectedSizeCS += EnqueueOperation<GfxFamily>::getSizeRequiredForTimestampPacketWrite();
+        if (resolveDependenciesByPipecontrol) {
+            expectedSizeCS += MemorySynchronizationCommands<GfxFamily>::getSizeForSingleBarrier(false);
+        }
+        if (isMarkerWithProfiling) {
+            if (!eventsInWaitlist) {
+                expectedSizeCS += commandQueue.getGpgpuCommandStreamReceiver().getCmdsSizeForComputeBarrierCommand();
+            }
+            expectedSizeCS += 4 * EncodeStoreMMIO<GfxFamily>::size;
+        }
+    } else if (isMarkerWithProfiling) {
+        expectedSizeCS += 2 * MemorySynchronizationCommands<GfxFamily>::getSizeForSingleBarrier(false);
+        if (!gfxCoreHelper.useOnlyGlobalTimestamps()) {
+            expectedSizeCS += 2 * EncodeStoreMMIO<GfxFamily>::size;
+        }
+    }
+    if (multiDispatchInfo.peekMainKernel()) {
+        expectedSizeCS += EnqueueOperation<GfxFamily>::getSizeForCacheFlushAfterWalkerCommands(*multiDispatchInfo.peekMainKernel(), commandQueue);
+    }
+
+    if (debugManager.flags.PauseOnEnqueue.get() != -1) {
+        expectedSizeCS += MemorySynchronizationCommands<GfxFamily>::getSizeForSingleBarrier(false) * 2;
+        expectedSizeCS += NEO::EncodeSemaphore<GfxFamily>::getSizeMiSemaphoreWait() * 2;
+    }
+
+    if (debugManager.flags.GpuScratchRegWriteAfterWalker.get() != -1) {
+        expectedSizeCS += sizeof(typename GfxFamily::MI_LOAD_REGISTER_IMM);
+    }
+    expectedSizeCS += TimestampPacketHelper::getRequiredCmdStreamSizeForMultiRootDeviceSyncNodesContainer<GfxFamily>(csrDeps);
+    if (outEvent) {
+        auto pEvent = castToObjectOrAbort<Event>(*outEvent);
+        if ((pEvent->getContext()->getRootDeviceIndices().size() > 1) && (!pEvent->isUserEvent())) {
+            expectedSizeCS += MemorySynchronizationCommands<GfxFamily>::getSizeForBarrierWithPostSyncOperation(rootDeviceEnvironment, false);
+        }
+    }
+    expectedSizeCS += MemorySynchronizationCommands<GfxFamily>::getSizeForSingleBarrier(false);
+
+    if ((CL_COMMAND_BARRIER == eventType) && !commandQueue.isOOQEnabled() && eventsInWaitlist) {
+        expectedSizeCS += EncodeStoreMemory<GfxFamily>::getStoreDataImmSize();
+    }
+
+    return expectedSizeCS;
+}
+
+template <typename GfxFamily>
+size_t EnqueueOperation<GfxFamily>::getSizeRequiredCS(uint32_t cmdType, bool reserveProfilingCmdsSpace, bool reservePerfCounters, CommandQueue &commandQueue, const Kernel *pKernel, const DispatchInfo &dispatchInfo) {
+    if (isCommandWithoutKernel(cmdType)) {
+        return EnqueueOperation<GfxFamily>::getSizeRequiredCSNonKernel(reserveProfilingCmdsSpace, reservePerfCounters, commandQueue);
+    } else {
+        return EnqueueOperation<GfxFamily>::getSizeRequiredCSKernel<typename GfxFamily::DefaultWalkerType>(reserveProfilingCmdsSpace, reservePerfCounters, commandQueue, pKernel, dispatchInfo);
+    }
+}
+
+template <typename GfxFamily>
+size_t EnqueueOperation<GfxFamily>::getSizeRequiredCSNonKernel(bool reserveProfilingCmdsSpace, bool reservePerfCounters, CommandQueue &commandQueue) {
+    size_t size = 0;
+    if (reserveProfilingCmdsSpace) {
+        size += 2 * MemorySynchronizationCommands<GfxFamily>::getSizeForSingleBarrier(false) + 4 * sizeof(typename GfxFamily::MI_STORE_REGISTER_MEM);
+    }
+
+    return size;
+}
+
+} // namespace NEO

@@ -1,47 +1,95 @@
 components:
+  aub_stream:
+    branch: master
+    dest_dir: aub_stream
+    repository: https://github.com/intel/aubstream
+    revision: f1db69b3ee907945dfd0d1bf0195a9fc3d069568
+    type: git
   gmmlib:
-    branch: gmmlib
-    clean_on_sync: true
+    asset_name: gmmlib
     dest_dir: gmmlib
+    type: git
+    branch: master
+    revision: intel-gmmlib-22.3.17
     repository: https://github.com/intel/gmmlib.git
-    revision: intel-gmmlib-19.1.1
-    type: git
   igc:
-    branch: igc
-    clean_on_sync: true
+    asset_name: igc
     dest_dir: igc
-    repository: https://github.com/intel/intelgraphicscompiler
-    revision: 429b1d5ade3f1ff6a55df3d4f4dc51237da13919
     type: git
+    branch: releases/igc-1.0.16238
+    revision: igc-1.0.16238.4
+    repository: https://github.com/intel/intelgraphicscompiler
+  igsc:
+    asset_name: igsc
+    dest_dir: igsc
+    type: git
+    branch: master
+    revision: V0.8.16
+    repository: https://github.com/intel/igsc.git
+    component_version: 215
   infra:
-    branch: infra
-    clean_on_sync: true
+    branch: neo/releases/24.09
     dest_dir: infra
-    revision: 66d8f0a8708092eedc58a61ff42ee15d1576a3da
+    fetch_tags: true
+    revision: v5760.1687.1
     type: git
   internal:
     branch: master
     dest_dir: internal
-    revision: 65553ba23f3f86220d73ff508edd58dacfe91926
+    revision: FETCH_HEAD
     type: git
+  kernels_bin:
+    dest_dir: kernels_bin
+    type: git
+    branch: kernels_bin
+    revision: 2295-1383
   kmdaf:
     branch: kmdaf
-    clean_on_sync: true
     dest_dir: kmdaf
-    revision: 3e45a728e94ee8ed0faa968d22409ac1465bcb60
+    revision: 552a3276a44e3255cf2a184acfc98123a43518b6
     type: git
+  level_zero:
+    asset_name: level_zero
+    dest_dir: level_zero
+    type: git
+    branch: master
+    revision: v1.15.13
+    repository: https://github.com/oneapi-src/level-zero
   libva:
-    branch: libva
-    clean_on_sync: true
+    asset_name: libva
     dest_dir: libva
+    type: git
+    branch: v2.2-branch
+    revision: 2.2.0
     repository: https://github.com/intel/libva.git
-    revision: c9bb65b
+  metrics-discovery:
+    asset_name: metrics-discovery
+    dest_dir: metrics/discovery
     type: git
+    branch: master
+    revision: metrics-discovery-1.12.170
+    repository: https://github.com/intel/metrics-discovery.git
+  metrics-library:
+    asset_name: metrics-library
+    dest_dir: metrics/library
+    type: git
+    branch: master
+    revision: metrics-library-1.0.156
+    repository: https://github.com/intel/metrics-library.git
+  neo-clang-format:
+    dest_dir: tools/clang-format
+    type: git
+    branch: clang-format
+    revision: 15.0.6
   wdk:
-    branch: wdk
-    clean_on_sync: true
     dest_dir: wdk
-    revision: 0dea8bf00d710a5d2da5d04eb5ae595d0df4ce47-1217
     type: git
-converter: M-1217
+    branch: wdk
+    revision: f22efc5a3b252d5da55da480608247df75827c6e-2290
+  wsl:
+    branch: wsl
+    dest_dir: wsl
+    revision: 56430997dac34ca0e9e18c177636234cac26ad54
+    type: git
+converter: M-2295
 version: '1'

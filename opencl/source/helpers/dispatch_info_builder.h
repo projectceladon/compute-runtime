@@ -1,0 +1,474 @@
+/*
+ * Copyright (C) 2018-2023 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#pragma once
+#include "shared/source/helpers/local_work_size.h"
+
+#include "opencl/source/command_queue/cl_local_work_size.h"
+#include "opencl/source/helpers/dispatch_info.h"
+#include "opencl/source/kernel/kernel.h"
+
+namespace NEO {
+
+namespace SplitDispatch {
+enum class Dim : uint32_t {
+    d1D = 0,
+    d2D = 1,
+    d3D = 2
+};
+
+enum class SplitMode : uint32_t {
+    noSplit = 0,
+    walkerSplit = 1, // 1 kernel and many GPGPU walkers (e.g. for non-uniform workgroup sizes)
+    kernelSplit = 2  // many kernels and many GPGPU walkers (e.g. for copy kernels)
+};
+
+// Left | Middle | Right
+enum class RegionCoordX : uint32_t {
+    left = 0,
+    middle = 1,
+    right = 2
+};
+
+//  Top
+// ------
+// Middle
+// ------
+// Bottom
+enum class RegionCoordY : uint32_t {
+    top = 0,
+    middle = 1,
+    bottom = 2
+};
+
+//  Front  /        /
+//        / Middle /
+//       /        / Back
+enum class RegionCoordZ : uint32_t {
+    front = 0,
+    middle = 1,
+    back = 2
+};
+} // namespace SplitDispatch
+
+// Compute power in compile time
+static constexpr uint32_t powConst(uint32_t base, uint32_t currExp) {
+    return (currExp == 1) ? base : base * powConst(base, currExp - 1);
+}
+
+template <SplitDispatch::Dim dim, SplitDispatch::SplitMode mode>
+class DispatchInfoBuilder {
+  public:
+    DispatchInfoBuilder(ClDevice &clDevice) {
+        for (auto i = 0u; i < numDispatches; i++) {
+            dispatchInfos[i].setClDevice(&clDevice);
+        }
+    };
+
+    void setKernel(Kernel *kernel) {
+        for (auto &dispatchInfo : dispatchInfos) {
+            dispatchInfo.setKernel(kernel);
+        }
+    }
+
+    cl_int setArgSvmAlloc(uint32_t argIndex, void *svmPtr, GraphicsAllocation *svmAlloc) {
+        for (auto &dispatchInfo : dispatchInfos) {
+            if (dispatchInfo.getKernel()) {
+                dispatchInfo.getKernel()->setArgSvmAlloc(argIndex, svmPtr, svmAlloc, 0u);
+            }
+        }
+        return CL_SUCCESS;
+    }
+
+    template <typename... ArgsT>
+    cl_int setArgSvm(ArgsT... args) {
+        for (auto &dispatchInfo : dispatchInfos) {
+            if (dispatchInfo.getKernel()) {
+                dispatchInfo.getKernel()->setArgSvm(args...);
+            }
+        }
+        return CL_SUCCESS;
+    }
+
+    void setUnifiedMemorySyncRequirement(bool isUnifiedMemorySyncRequired) {
+        for (auto &dispatchInfo : dispatchInfos) {
+            dispatchInfo.getKernel()->setUnifiedMemorySyncRequirement(isUnifiedMemorySyncRequired);
+        }
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d1D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setArgSvm(SplitDispatch::RegionCoordX x, ArgsT &&...args) {
+        dispatchInfos[getDispatchId(x)].getKernel()->setArgSvm(std::forward<ArgsT>(args)...);
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d2D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setArgSvm(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, ArgsT &&...args) {
+        dispatchInfos[getDispatchId(x, y)].getKernel()->setArgSvm(std::forward<ArgsT>(args)...);
+    }
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d3D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setArgSvm(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, SplitDispatch::RegionCoordZ z, ArgsT &&...args) {
+        dispatchInfos[getDispatchId(x, y, z)].getKernel()->setArgSvm(std::forward<ArgsT>(args)...);
+    }
+
+    template <typename... ArgsT>
+    cl_int setArg(ArgsT... args) {
+        cl_int result = CL_SUCCESS;
+        for (auto &dispatchInfo : dispatchInfos) {
+            if (dispatchInfo.getKernel()) {
+                result = dispatchInfo.getKernel()->setArg(args...);
+                if (result != CL_SUCCESS) {
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d1D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setArg(SplitDispatch::RegionCoordX x, ArgsT &&...args) {
+        dispatchInfos[getDispatchId(x)].getKernel()->setArg(std::forward<ArgsT>(args)...);
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d2D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setArg(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, ArgsT &&...args) {
+        dispatchInfos[getDispatchId(x, y)].getKernel()->setArg(std::forward<ArgsT>(args)...);
+    }
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d3D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setArg(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, SplitDispatch::RegionCoordZ z, ArgsT &&...args) {
+        dispatchInfos[getDispatchId(x, y, z)].getKernel()->setArg(std::forward<ArgsT>(args)...);
+    }
+    template <SplitDispatch::Dim d = dim>
+    typename std::enable_if<(d == SplitDispatch::Dim::d1D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setKernel(SplitDispatch::RegionCoordX x, Kernel *kern) {
+        dispatchInfos[getDispatchId(x)].setKernel(kern);
+    }
+
+    template <SplitDispatch::Dim d = dim>
+    typename std::enable_if<(d == SplitDispatch::Dim::d2D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setKernel(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, Kernel *kern) {
+        dispatchInfos[getDispatchId(x, y)].setKernel(kern);
+    }
+
+    template <SplitDispatch::Dim d = dim>
+    typename std::enable_if<(d == SplitDispatch::Dim::d3D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setKernel(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, SplitDispatch::RegionCoordZ z, Kernel *kern) {
+        dispatchInfos[getDispatchId(x, y, z)].setKernel(kern);
+    }
+
+    template <SplitDispatch::SplitMode m = mode>
+    typename std::enable_if<(m == SplitDispatch::SplitMode::noSplit) || (m == SplitDispatch::SplitMode::walkerSplit), void>::type
+    setDispatchGeometry(const uint32_t inputDim, const Vec3<size_t> &gws, const Vec3<size_t> &elws, const Vec3<size_t> &offset, const Vec3<size_t> &agws = {0, 0, 0}, const Vec3<size_t> &lws = {0, 0, 0}, const Vec3<size_t> &twgs = {0, 0, 0}, const Vec3<size_t> &nwgs = {0, 0, 0}, const Vec3<size_t> &swgs = {0, 0, 0}) {
+        auto &dispatchInfo = dispatchInfos[0];
+        DEBUG_BREAK_IF(inputDim > static_cast<uint32_t>(dim) + 1);
+        dispatchInfo.setDim(inputDim);
+        dispatchInfo.setGWS(gws);
+        dispatchInfo.setEnqueuedWorkgroupSize(elws);
+        dispatchInfo.setOffsets(offset);
+        dispatchInfo.setActualGlobalWorkgroupSize(agws);
+        dispatchInfo.setLWS(lws);
+        dispatchInfo.setTotalNumberOfWorkgroups(twgs);
+        dispatchInfo.setNumberOfWorkgroups(nwgs);
+        dispatchInfo.setStartOfWorkgroups(swgs);
+    }
+
+    template <SplitDispatch::SplitMode m = mode>
+    typename std::enable_if<(m == SplitDispatch::SplitMode::noSplit) || (m == SplitDispatch::SplitMode::walkerSplit), void>::type
+    setDispatchGeometry(const Vec3<size_t> &gws, const Vec3<size_t> &elws, const Vec3<size_t> &offset, const Vec3<size_t> &agws = {0, 0, 0}, const Vec3<size_t> &lws = {0, 0, 0}, const Vec3<size_t> &twgs = {0, 0, 0}, const Vec3<size_t> &nwgs = {0, 0, 0}, const Vec3<size_t> &swgs = {0, 0, 0}) {
+        auto &dispatchInfo = dispatchInfos[0];
+        dispatchInfo.setDim(static_cast<uint32_t>(dim) + 1);
+        dispatchInfo.setGWS(gws);
+        dispatchInfo.setEnqueuedWorkgroupSize(elws);
+        dispatchInfo.setOffsets(offset);
+        dispatchInfo.setActualGlobalWorkgroupSize(agws);
+        dispatchInfo.setLWS(lws);
+        dispatchInfo.setTotalNumberOfWorkgroups(twgs);
+        dispatchInfo.setNumberOfWorkgroups(nwgs);
+        dispatchInfo.setStartOfWorkgroups(swgs);
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d1D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setDispatchGeometry(SplitDispatch::RegionCoordX x,
+                        const Vec3<size_t> &gws, const Vec3<size_t> &elws, const Vec3<size_t> &offset, const Vec3<size_t> &agws = {0, 0, 0}, const Vec3<size_t> &lws = {0, 0, 0}, const Vec3<size_t> &twgs = {0, 0, 0}, const Vec3<size_t> &nwgs = {0, 0, 0}, const Vec3<size_t> &swgs = {0, 0, 0}) {
+        auto &dispatchInfo = dispatchInfos[getDispatchId(x)];
+        dispatchInfo.setDim(static_cast<uint32_t>(dim) + 1);
+        dispatchInfo.setGWS(gws);
+        dispatchInfo.setEnqueuedWorkgroupSize(elws);
+        dispatchInfo.setOffsets(offset);
+        dispatchInfo.setActualGlobalWorkgroupSize(agws);
+        dispatchInfo.setLWS(lws);
+        dispatchInfo.setTotalNumberOfWorkgroups(twgs);
+        dispatchInfo.setNumberOfWorkgroups(nwgs);
+        dispatchInfo.setStartOfWorkgroups(swgs);
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d2D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setDispatchGeometry(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y,
+                        const Vec3<size_t> &gws, const Vec3<size_t> &elws, const Vec3<size_t> &offset, const Vec3<size_t> &agws = {0, 0, 0}, const Vec3<size_t> lws = {0, 0, 0}, const Vec3<size_t> &twgs = {0, 0, 0}, const Vec3<size_t> &nwgs = {0, 0, 0}, const Vec3<size_t> &swgs = {0, 0, 0}) {
+        auto &dispatchInfo = dispatchInfos[getDispatchId(x, y)];
+        dispatchInfo.setDim(static_cast<uint32_t>(dim) + 1);
+        dispatchInfo.setGWS(gws);
+        dispatchInfo.setEnqueuedWorkgroupSize(elws);
+        dispatchInfo.setOffsets(offset);
+        dispatchInfo.setActualGlobalWorkgroupSize(agws);
+        dispatchInfo.setLWS(lws);
+        dispatchInfo.setTotalNumberOfWorkgroups(twgs);
+        dispatchInfo.setNumberOfWorkgroups(nwgs);
+        dispatchInfo.setStartOfWorkgroups(swgs);
+    }
+
+    template <SplitDispatch::Dim d = dim, typename... ArgsT>
+    typename std::enable_if<(d == SplitDispatch::Dim::d3D) && (mode != SplitDispatch::SplitMode::noSplit), void>::type
+    setDispatchGeometry(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, SplitDispatch::RegionCoordZ z,
+                        const Vec3<size_t> &gws, const Vec3<size_t> &elws, const Vec3<size_t> &offset, const Vec3<size_t> &agws = {0, 0, 0}, const Vec3<size_t> &lws = {0, 0, 0}, const Vec3<size_t> &twgs = {0, 0, 0}, const Vec3<size_t> &nwgs = {0, 0, 0}, const Vec3<size_t> &swgs = {0, 0, 0}) {
+        auto &dispatchInfo = dispatchInfos[getDispatchId(x, y, z)];
+        dispatchInfo.setDim(static_cast<uint32_t>(dim) + 1);
+        dispatchInfo.setGWS(gws);
+        dispatchInfo.setEnqueuedWorkgroupSize(elws);
+        dispatchInfo.setOffsets(offset);
+        dispatchInfo.setActualGlobalWorkgroupSize(agws);
+        dispatchInfo.setLWS(lws);
+        dispatchInfo.setTotalNumberOfWorkgroups(twgs);
+        dispatchInfo.setNumberOfWorkgroups(nwgs);
+        dispatchInfo.setStartOfWorkgroups(swgs);
+    }
+
+    void bake(MultiDispatchInfo &target) {
+        for (auto &dispatchInfo : dispatchInfos) {
+            if (!isWorkSizeValid(dispatchInfo.getDim(), dispatchInfo.getGWS())) {
+                continue;
+            }
+
+            dispatchInfo.setDim(dispatchInfo.getDim() == 0 ? calculateDispatchDim(dispatchInfo.getGWS(), dispatchInfo.getOffset()) : dispatchInfo.getDim());
+            dispatchInfo.setGWS(canonizeWorkgroup(dispatchInfo.getGWS()));
+            if (dispatchInfo.getActualWorkgroupSize() == Vec3<size_t>({0, 0, 0})) {
+                dispatchInfo.setActualGlobalWorkgroupSize(dispatchInfo.getGWS());
+            }
+
+            if (!isWorkSizeValid(dispatchInfo.getDim(), dispatchInfo.getActualWorkgroupSize())) {
+                continue;
+            }
+
+            dispatchInfo.setEnqueuedWorkgroupSize(canonizeWorkgroup(dispatchInfo.getEnqueuedWorkgroupSize()));
+            if (dispatchInfo.getLocalWorkgroupSize().x == 0) {
+                dispatchInfo.setLWS(generateWorkgroupSize(dispatchInfo));
+            }
+            dispatchInfo.setLWS(canonizeWorkgroup(dispatchInfo.getLocalWorkgroupSize()));
+            if (dispatchInfo.getTotalNumberOfWorkgroups().x == 0) {
+                dispatchInfo.setTotalNumberOfWorkgroups(generateWorkgroupsNumber(dispatchInfo));
+            }
+
+            dispatchInfo.setTotalNumberOfWorkgroups(canonizeWorkgroup(dispatchInfo.getTotalNumberOfWorkgroups()));
+            if (dispatchInfo.getNumberOfWorkgroups().x == 0) {
+                dispatchInfo.setNumberOfWorkgroups(dispatchInfo.getTotalNumberOfWorkgroups());
+            }
+
+            if (supportsSplit() && needsSplit(dispatchInfo)) {
+                pushSplit(dispatchInfo, target);
+            } else {
+                target.push(dispatchInfo);
+                PRINT_DEBUG_STRING(debugManager.flags.PrintDebugMessages.get(), stdout,
+                                   "DIM:%u\tGWS:(%zu, %zu, %zu)\tELWS:(%zu, %zu, %zu)\tOffset:(%zu, %zu, %zu)\tAGWS:(%zu, %zu, %zu)\tLWS:(%zu, %zu, %zu)\tTWGS:(%zu, %zu, %zu)\tNWGS:(%zu, %zu, %zu)\tSWGS:(%zu, %zu, %zu)\n",
+                                   dispatchInfo.getDim(),
+                                   dispatchInfo.getGWS().x, dispatchInfo.getGWS().y, dispatchInfo.getGWS().z,
+                                   dispatchInfo.getEnqueuedWorkgroupSize().x, dispatchInfo.getEnqueuedWorkgroupSize().y, dispatchInfo.getEnqueuedWorkgroupSize().z,
+                                   dispatchInfo.getOffset().x, dispatchInfo.getOffset().y, dispatchInfo.getOffset().z,
+                                   dispatchInfo.getActualWorkgroupSize().x, dispatchInfo.getActualWorkgroupSize().y, dispatchInfo.getActualWorkgroupSize().z,
+                                   dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getLocalWorkgroupSize().z,
+                                   dispatchInfo.getTotalNumberOfWorkgroups().x, dispatchInfo.getTotalNumberOfWorkgroups().y, dispatchInfo.getTotalNumberOfWorkgroups().z,
+                                   dispatchInfo.getNumberOfWorkgroups().x, dispatchInfo.getNumberOfWorkgroups().y, dispatchInfo.getNumberOfWorkgroups().z,
+                                   dispatchInfo.getStartOfWorkgroups().x, dispatchInfo.getStartOfWorkgroups().y, dispatchInfo.getStartOfWorkgroups().z);
+            }
+        }
+    }
+
+    void setKernelDestinationArgumentInSystem(bool value) {
+        for (auto &dispatchInfo : dispatchInfos) {
+            dispatchInfo.getKernel()->setDestinationAllocationInSystemMemory(value);
+        }
+    }
+
+    DispatchInfo &getDispatchInfo(size_t index) { return dispatchInfos[index]; }
+    static constexpr size_t getMaxNumDispatches() { return numDispatches; }
+
+  protected:
+    static bool supportsSplit() {
+        return (mode == SplitDispatch::SplitMode::walkerSplit);
+    }
+
+    static bool needsSplit(const DispatchInfo &dispatchInfo) {
+        return (dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x + dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y + dispatchInfo.getGWS().z % dispatchInfo.getLocalWorkgroupSize().z != 0);
+    }
+
+    static void pushSplit(const DispatchInfo &dispatchInfo, MultiDispatchInfo &outMdi) {
+        constexpr auto xMain = SplitDispatch::RegionCoordX::left;
+        constexpr auto xRight = SplitDispatch::RegionCoordX::middle;
+        constexpr auto yMain = SplitDispatch::RegionCoordY::top;
+        constexpr auto yBottom = SplitDispatch::RegionCoordY::middle;
+        constexpr auto zMain = SplitDispatch::RegionCoordZ::front;
+        constexpr auto zBack = SplitDispatch::RegionCoordZ::middle;
+
+        switch (dispatchInfo.getDim()) {
+        default:
+            break;
+        case 1: {
+            Vec3<size_t> mainLWS = {dispatchInfo.getLocalWorkgroupSize().x, 1, 1};
+            Vec3<size_t> rightLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, 1, 1};
+
+            Vec3<size_t> mainGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), 1, 1};
+            Vec3<size_t> rightGWS = {dispatchInfo.getGWS().x % mainLWS.x, 1, 1};
+
+            Vec3<size_t> mainNWGS = {mainGWS.x / mainLWS.x, 1, 1};
+            Vec3<size_t> rightNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), 1, 1};
+
+            Vec3<size_t> mainSWGS = {0, 0, 0};
+            Vec3<size_t> rightSWGS = {mainNWGS.x, 0, 0};
+
+            DispatchInfoBuilder<SplitDispatch::Dim::d1D, SplitDispatch::SplitMode::kernelSplit> builder1D(dispatchInfo.getClDevice());
+
+            builder1D.setKernel(dispatchInfo.getKernel());
+
+            builder1D.setDispatchGeometry(xMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), mainGWS, mainLWS, dispatchInfo.getTotalNumberOfWorkgroups(), mainNWGS, mainSWGS);
+            builder1D.setDispatchGeometry(xRight, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightGWS, rightLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightNWGS, rightSWGS);
+
+            builder1D.bake(outMdi);
+        } break;
+        case 2: {
+            Vec3<size_t> mainLWS = {dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getLocalWorkgroupSize().y, 1};
+            Vec3<size_t> rightLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getLocalWorkgroupSize().y, 1};
+            Vec3<size_t> bottomLWS = {dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y, 1};
+            Vec3<size_t> rightbottomLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y, 1};
+
+            Vec3<size_t> mainGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), alignDown(dispatchInfo.getGWS().y, mainLWS.y), 1};
+            Vec3<size_t> rightGWS = {dispatchInfo.getGWS().x % mainLWS.x, alignDown(dispatchInfo.getGWS().y, mainLWS.y), 1};
+            Vec3<size_t> bottomGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), dispatchInfo.getGWS().y % mainLWS.y, 1};
+            Vec3<size_t> rightbottomGWS = {dispatchInfo.getGWS().x % mainLWS.x, dispatchInfo.getGWS().y % mainLWS.y, 1};
+
+            Vec3<size_t> mainNWGS = {mainGWS.x / mainLWS.x, mainGWS.y / mainLWS.y, 1};
+            Vec3<size_t> rightNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), mainGWS.y / mainLWS.y, 1};
+            Vec3<size_t> bottomNWGS = {mainGWS.x / mainLWS.x, mainNWGS.y + isIndivisible(bottomGWS.y, mainLWS.y), 1};
+            Vec3<size_t> rightbottomNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), mainNWGS.y + isIndivisible(bottomGWS.y, mainLWS.y), 1};
+
+            Vec3<size_t> mainSWGS = {0, 0, 0};
+            Vec3<size_t> rightSWGS = {mainNWGS.x, 0, 0};
+            Vec3<size_t> bottomSWGS = {0, mainNWGS.y, 0};
+            Vec3<size_t> rightbottomSWGS = {mainNWGS.x, mainNWGS.y, 0};
+
+            DispatchInfoBuilder<SplitDispatch::Dim::d2D, SplitDispatch::SplitMode::kernelSplit> builder2D(dispatchInfo.getClDevice());
+
+            builder2D.setKernel(dispatchInfo.getKernel());
+
+            builder2D.setDispatchGeometry(xMain, yMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), mainGWS, mainLWS, dispatchInfo.getTotalNumberOfWorkgroups(), mainNWGS, mainSWGS);
+            builder2D.setDispatchGeometry(xRight, yMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightGWS, rightLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightNWGS, rightSWGS);
+            builder2D.setDispatchGeometry(xMain, yBottom, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), bottomGWS, bottomLWS, dispatchInfo.getTotalNumberOfWorkgroups(), bottomNWGS, bottomSWGS);
+            builder2D.setDispatchGeometry(xRight, yBottom, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightbottomGWS, rightbottomLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightbottomNWGS, rightbottomSWGS);
+
+            builder2D.bake(outMdi);
+        } break;
+        case 3: {
+            Vec3<size_t> mainLWS = dispatchInfo.getLocalWorkgroupSize();
+            Vec3<size_t> rightLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getLocalWorkgroupSize().z};
+            Vec3<size_t> bottomLWS = {dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getLocalWorkgroupSize().z};
+            Vec3<size_t> rightbottomLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getLocalWorkgroupSize().z};
+            Vec3<size_t> mainbackLWS = {dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getGWS().z % dispatchInfo.getLocalWorkgroupSize().z};
+            Vec3<size_t> rightbackLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getGWS().z % dispatchInfo.getLocalWorkgroupSize().z};
+            Vec3<size_t> bottombackLWS = {dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getGWS().z % dispatchInfo.getLocalWorkgroupSize().z};
+            Vec3<size_t> rightbottombackLWS = {dispatchInfo.getGWS().x % dispatchInfo.getLocalWorkgroupSize().x, dispatchInfo.getGWS().y % dispatchInfo.getLocalWorkgroupSize().y, dispatchInfo.getGWS().z % dispatchInfo.getLocalWorkgroupSize().z};
+
+            Vec3<size_t> mainGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), alignDown(dispatchInfo.getGWS().y, mainLWS.y), alignDown(dispatchInfo.getGWS().z, mainLWS.z)};
+            Vec3<size_t> rightGWS = {dispatchInfo.getGWS().x % mainLWS.x, alignDown(dispatchInfo.getGWS().y, mainLWS.y), alignDown(dispatchInfo.getGWS().z, mainLWS.z)};
+            Vec3<size_t> bottomGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), dispatchInfo.getGWS().y % mainLWS.y, alignDown(dispatchInfo.getGWS().z, mainLWS.z)};
+            Vec3<size_t> rightbottomGWS = {dispatchInfo.getGWS().x % mainLWS.x, dispatchInfo.getGWS().y % mainLWS.y, alignDown(dispatchInfo.getGWS().z, mainLWS.z)};
+            Vec3<size_t> mainbackGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), alignDown(dispatchInfo.getGWS().y, mainLWS.y), dispatchInfo.getGWS().z % mainLWS.z};
+            Vec3<size_t> rightbackGWS = {dispatchInfo.getGWS().x % mainLWS.x, alignDown(dispatchInfo.getGWS().y, mainLWS.y), dispatchInfo.getGWS().z % mainLWS.z};
+            Vec3<size_t> bottombackGWS = {alignDown(dispatchInfo.getGWS().x, mainLWS.x), dispatchInfo.getGWS().y % mainLWS.y, dispatchInfo.getGWS().z % mainLWS.z};
+            Vec3<size_t> rightbottombackGWS = {dispatchInfo.getGWS().x % mainLWS.x, dispatchInfo.getGWS().y % mainLWS.y, dispatchInfo.getGWS().z % mainLWS.z};
+
+            Vec3<size_t> mainNWGS = {mainGWS.x / mainLWS.x, mainGWS.y / mainLWS.y, mainGWS.z / mainLWS.z + isIndivisible(mainGWS.z, mainLWS.z)};
+            Vec3<size_t> rightNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), mainGWS.y / mainLWS.y, mainGWS.z / mainLWS.z};
+            Vec3<size_t> bottomNWGS = {mainGWS.x / mainLWS.x, mainNWGS.y + isIndivisible(bottomGWS.y, mainLWS.y), mainGWS.z / mainLWS.z};
+            Vec3<size_t> rightbottomNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), mainNWGS.y + isIndivisible(bottomGWS.y, mainLWS.y), mainGWS.z / mainLWS.z};
+            Vec3<size_t> mainbackNWGS = {mainGWS.x / mainLWS.x, mainGWS.y / mainLWS.y, mainNWGS.z + isIndivisible(mainbackGWS.z, mainLWS.z)};
+            Vec3<size_t> rightbackNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), mainGWS.y / mainLWS.y, mainNWGS.z + isIndivisible(rightbackGWS.z, mainLWS.z)};
+            Vec3<size_t> bottombackNWGS = {mainGWS.x / mainLWS.x, mainNWGS.y + isIndivisible(bottomGWS.y, mainLWS.y), mainNWGS.z + isIndivisible(bottombackGWS.z, mainLWS.z)};
+            Vec3<size_t> rightbottombackNWGS = {mainNWGS.x + isIndivisible(rightGWS.x, mainLWS.x), mainNWGS.y + isIndivisible(bottomGWS.y, mainLWS.y), mainNWGS.z + isIndivisible(rightbottombackGWS.z, mainLWS.z)};
+
+            Vec3<size_t> mainSWGS = {0, 0, 0};
+            Vec3<size_t> rightSWGS = {mainNWGS.x, 0, 0};
+            Vec3<size_t> bottomSWGS = {0, mainNWGS.y, 0};
+            Vec3<size_t> rightbottomSWGS = {mainNWGS.x, mainNWGS.y, 0};
+            Vec3<size_t> mainbackSWGS = {0, 0, mainNWGS.z};
+            Vec3<size_t> rightbackSWGS = {mainNWGS.x, 0, mainNWGS.z};
+            Vec3<size_t> bottombackSWGS = {0, mainNWGS.y, mainNWGS.z};
+            Vec3<size_t> rightbottombackSWGS = {mainNWGS.x, mainNWGS.y, mainNWGS.z};
+
+            DispatchInfoBuilder<SplitDispatch::Dim::d3D, SplitDispatch::SplitMode::kernelSplit> builder3D(dispatchInfo.getClDevice());
+
+            builder3D.setKernel(dispatchInfo.getKernel());
+
+            builder3D.setDispatchGeometry(xMain, yMain, zMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), mainGWS, mainLWS, dispatchInfo.getTotalNumberOfWorkgroups(), mainNWGS, mainSWGS);
+            builder3D.setDispatchGeometry(xRight, yMain, zMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightGWS, rightLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightNWGS, rightSWGS);
+            builder3D.setDispatchGeometry(xMain, yBottom, zMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), bottomGWS, bottomLWS, dispatchInfo.getTotalNumberOfWorkgroups(), bottomNWGS, bottomSWGS);
+            builder3D.setDispatchGeometry(xRight, yBottom, zMain, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightbottomGWS, rightbottomLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightbottomNWGS, rightbottomSWGS);
+            builder3D.setDispatchGeometry(xMain, yMain, zBack, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), mainbackGWS, mainbackLWS, dispatchInfo.getTotalNumberOfWorkgroups(), mainbackNWGS, mainbackSWGS);
+            builder3D.setDispatchGeometry(xRight, yMain, zBack, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightbackGWS, rightbackLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightbackNWGS, rightbackSWGS);
+            builder3D.setDispatchGeometry(xMain, yBottom, zBack, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), bottombackGWS, bottombackLWS, dispatchInfo.getTotalNumberOfWorkgroups(), bottombackNWGS, bottombackSWGS);
+            builder3D.setDispatchGeometry(xRight, yBottom, zBack, dispatchInfo.getGWS(), dispatchInfo.getEnqueuedWorkgroupSize(), dispatchInfo.getOffset(), rightbottombackGWS, rightbottombackLWS, dispatchInfo.getTotalNumberOfWorkgroups(), rightbottombackNWGS, rightbottombackSWGS);
+
+            builder3D.bake(outMdi);
+        } break;
+        }
+    }
+
+    static constexpr uint32_t getDispatchId(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y, SplitDispatch::RegionCoordZ z) {
+        return static_cast<uint32_t>(x) + static_cast<uint32_t>(y) * (static_cast<uint32_t>(mode) + 1) + static_cast<uint32_t>(z) * (static_cast<uint32_t>(mode) + 1) * (static_cast<uint32_t>(mode) + 1);
+    }
+
+    static constexpr uint32_t getDispatchId(SplitDispatch::RegionCoordX x, SplitDispatch::RegionCoordY y) {
+        return static_cast<uint32_t>(x) + static_cast<uint32_t>(y) * (static_cast<uint32_t>(mode) + 1);
+    }
+
+    static constexpr uint32_t getDispatchId(SplitDispatch::RegionCoordX x) {
+        return static_cast<uint32_t>(x);
+    }
+
+    static const size_t numDispatches = (mode == SplitDispatch::SplitMode::walkerSplit) ? 1 : powConst((static_cast<uint32_t>(mode) + 1), // 1 (middle) 2 (middle + right/bottom) or 3 (lef/top + middle + right/mottom)
+                                                                                                       (static_cast<uint32_t>(dim) + 1)); // 1, 2 or 3
+
+    DispatchInfo dispatchInfos[numDispatches];
+
+  private:
+    static size_t alignDown(size_t x, size_t y) {
+        return x - x % y;
+    }
+
+    static size_t isIndivisible(size_t x, size_t y) {
+        return x % y ? 1 : 0;
+    }
+
+    static bool isWorkSizeValid(uint32_t inputDim, const Vec3<size_t> &workSize) {
+        switch (inputDim) {
+        case 1:
+            return workSize.x > 0;
+        case 2:
+            return workSize.x > 0 && workSize.y > 0;
+        case 3:
+            return workSize.x > 0 && workSize.y > 0 && workSize.z > 0;
+        default:
+            return true;
+        }
+    }
+};
+
+} // namespace NEO
