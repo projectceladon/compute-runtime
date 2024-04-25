@@ -19,11 +19,8 @@ cc_defaults {
         "-Wno-instantiation-after-specialization",
         "-DSANITIZER_BUILD",
         "-Wno-deprecated-register",
-        "-Wno-deprecated-copy",
-    ],
-
-    clang_cflags: [
         "-Wno-error=non-virtual-dtor",
+        "-Wno-deprecated-copy",
     ],
 
     include_dirs: [
@@ -45,7 +42,6 @@ cc_defaults {
     ],
 
     static_libs: [
-        
     ],
 
 }

@@ -13,9 +13,12 @@
 namespace NEO {
 namespace Linux {
 void adjustLibraryFlags(int &dlopenFlag) {
+#ifndef __ANDROID__
+
     if (debugManager.flags.DisableDeepBind.get()) {
         dlopenFlag &= ~RTLD_DEEPBIND;
     }
+#endif
 }
 } // namespace Linux
 } // namespace NEO
