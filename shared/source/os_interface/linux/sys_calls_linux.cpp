@@ -80,7 +80,11 @@ void *dlopen(const char *filename, int flag) {
 }
 
 int dlinfo(void *handle, int request, void *info) {
+#ifdef __ANDROID__
+    return -1;
+#else
     return ::dlinfo(handle, request, info);
+#endif
 }
 
 int access(const char *pathName, int mode) {
