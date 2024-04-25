@@ -11,6 +11,7 @@
 #include "shared/source/os_interface/linux/ioctl_helper.h"
 
 #include <cstddef>
+#include <errno.h>
 
 namespace NEO {
 

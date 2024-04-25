@@ -72,11 +72,13 @@ void *OsLibrary::getProcAddress(const std::string &procName) {
 }
 
 std::string OsLibrary::getFullPath() {
+#ifndef __ANDROID__
     struct link_map *map = nullptr;
-    int retVal = -1; //NEO::SysCalls::dlinfo(this->handle, RTLD_DI_LINKMAP, &map);
+    int retVal = NEO::SysCalls::dlinfo(this->handle, RTLD_DI_LINKMAP, &map);
     if (retVal == 0 && map != nullptr) {
         return std::string(map->l_name);
     }
+#endif
     return std::string();
 }
 } // namespace Linux
