@@ -49,6 +49,7 @@ struct AbstractBuffersPool : public SmallBuffersParams<PoolT>, public NonCopyabl
     AbstractBuffersPool(MemoryManager *memoryManager, OnChunkFreeCallback onChunkFreeCallback);
     AbstractBuffersPool(AbstractBuffersPool<PoolT, BufferType, BufferParentType> &&bufferPool);
     AbstractBuffersPool &operator=(AbstractBuffersPool &&) = delete;
+    virtual ~AbstractBuffersPool();
     void tryFreeFromPoolBuffer(BufferParentType *possiblePoolBuffer, size_t offset, size_t size);
     bool isPoolBuffer(const BufferParentType *buffer) const;
     void drain();
@@ -61,6 +62,7 @@ struct AbstractBuffersPool : public SmallBuffersParams<PoolT>, public NonCopyabl
 
     MemoryManager *memoryManager{nullptr};
     std::unique_ptr<BufferType> mainStorage;
+    BufferType* tempStoragePointerCache{nullptr}; // clang: cache unqiue_ptr value for pool buffer judge logic in case pool buffer destruct itself
     std::unique_ptr<HeapAllocator> chunkAllocator;
     std::vector<std::pair<uint64_t, size_t>> chunksToFree;
     OnChunkFreeCallback onChunkFreeCallback = nullptr;

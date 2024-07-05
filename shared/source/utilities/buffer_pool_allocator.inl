@@ -34,10 +34,16 @@ void AbstractBuffersPool<PoolT, BufferType, BufferParentType>::tryFreeFromPoolBu
 }
 
 template <typename PoolT, typename BufferType, typename BufferParentType>
+AbstractBuffersPool<PoolT, BufferType, BufferParentType>::~AbstractBuffersPool()
+{
+    tempStoragePointerCache = mainStorage.get();
+}
+
+template <typename PoolT, typename BufferType, typename BufferParentType>
 bool AbstractBuffersPool<PoolT, BufferType, BufferParentType>::isPoolBuffer(const BufferParentType *buffer) const {
     static_assert(std::is_base_of_v<BufferParentType, BufferType>);
 
-    return (buffer && this->mainStorage.get() == buffer);
+    return (buffer && (this->mainStorage.get() == buffer || this->tempStoragePointerCache == buffer)); // for clang, unique_ptr is assigned nullptr firstly
 }
 
 template <typename PoolT, typename BufferType, typename BufferParentType>
