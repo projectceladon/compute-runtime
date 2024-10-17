@@ -123,10 +123,12 @@ class ComputeRuntimeGenerator(Generator):
         cmd += "mkdir -p " + path.join(self.proj, "device/built_ins/x64/gen12lp/") + NOVERBOSE
         cmd += "mkdir -p " + path.join(self.proj, "device/built_ins/x64/xe_hpc_core/") + NOVERBOSE
         cmd += "mkdir -p " + path.join(self.proj, "device/built_ins/x64/xe_hpg_core/") + NOVERBOSE
+        cmd += "mkdir -p " + path.join(self.proj, "device/built_ins/x64/xe2_hpg_core/") + NOVERBOSE
         cmd += "cp -f " + path.join(build_dir, "*.h") + " " + path.join(self.proj, "device/include/") + NOVERBOSE
         cmd += "cp -f " + path.join(build_dir, "bin/built_ins/x64/gen12lp/*.cpp") + " " + path.join(self.proj, "device/built_ins/x64/gen12lp/") + NOVERBOSE
         cmd += "cp -f " + path.join(build_dir, "bin/built_ins/x64/xe_hpc_core/*.cpp") + " " + path.join(self.proj, "device/built_ins/x64/xe_hpc_core/") + NOVERBOSE
         cmd += "cp -f " + path.join(build_dir, "bin/built_ins/x64/xe_hpg_core/*.cpp") + " " + path.join(self.proj, "device/built_ins/x64/xe_hpg_core/") + NOVERBOSE
+        cmd += "cp -f " + path.join(build_dir, "bin/built_ins/x64/xe2_hpg_core/*.cpp") + " " + path.join(self.proj, "device/built_ins/x64/xe2_hpg_core/") + NOVERBOSE
         os.system(cmd)
 
 class Main:
