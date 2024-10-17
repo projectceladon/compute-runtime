@@ -69,10 +69,7 @@ class ComputeRuntimeGenerator(Generator):
             cppflags = ["-Wno-error", "-fexceptions", "-msse4.2", "-mavx2", "-D__AVX2__", "-mretpoline", 
             "-Wshorten-64-to-32", "-Wno-extern-c-compat", "-Wno-instantiation-after-specialization", "-DSANITIZER_BUILD", "-Wno-deprecated-register", "-Wno-deprecated-copy",],
             clang_cflags = ["-Wno-error=non-virtual-dtor"],
-            include_dirs = ["hardware/intel/external/libva",
-                "hardware/intel/external/media/gmmlib/Source/inc",
-                "hardware/intel/external/media/gmmlib/Source/inc/common",
-                "hardware/intel/external/media/gmmlib/Source/GmmLib/inc",
+            include_dirs = [
                 "hardware/intel/external/opencl/intel-graphics-compiler/include/igc",
                 "hardware/intel/external/opencl/intel-graphics-compiler/include/igc/cif",
                 "hardware/intel/external/opencl/intel-graphics-compiler/include/igc/ocl_igc_shared/executable_format",
@@ -80,7 +77,10 @@ class ComputeRuntimeGenerator(Generator):
                 "hardware/intel/external/opencl/intel-graphics-compiler/include/visa",
                 "hardware/intel/external/opencl/compute-runtime/device/include/"
                 ],
-            shared_libs = ["libgmm_umd",],
+            shared_libs = ["libigdgmm_android",],
+            header_libs = ["libigdgmm_headers",
+                "libva_headers"
+            ],
             bpfiles = [
                 "libigdrcl_lib_release.bp",
                 "libneo_shared.bp",

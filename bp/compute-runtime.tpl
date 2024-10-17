@@ -48,6 +48,10 @@ cc_@module {
 @shared_libs
     ],
 
+    header_libs: [
+@header_libs
+    ],
+
     static_libs: [
 @static_libs
     ],

@@ -40,7 +40,7 @@ def remove(f):
 class CCDefaults:
     # constructor
     def __init__(self, proj, defname, cflags = [], cppflags = [], clang_cflags = [],
-        include_dirs = [], shared_libs = [], static_libs = [], bpfiles = []):
+        include_dirs = [], shared_libs = [], header_libs = [], static_libs = [], bpfiles = []):
         self.templ = path.join(proj, TEMPLATE_DIR)
         self.proj = proj
         self.default_name = defname
@@ -49,6 +49,7 @@ class CCDefaults:
         self.clang_cflag = clang_cflags
         self.include_dir = include_dirs
         self.shared_lib = shared_libs
+        self.header_lib = header_libs
         self.static_lib = static_libs
         self.bp_file = bpfiles
 
@@ -71,6 +72,7 @@ class CCDefaults:
         tpl = tpl.replace("@clang_cflags", self.convertList2Str(self.clang_cflag))
         tpl = tpl.replace("@include_dirs", self.convertList2Str(self.include_dir))
         tpl = tpl.replace("@shared_libs", self.convertList2Str(self.shared_lib))
+        tpl = tpl.replace("@header_libs", self.convertList2Str(self.header_lib))
         tpl = tpl.replace("@static_libs", self.convertList2Str(self.static_lib))
         tpl = tpl.replace("@build", self.convertList2Str(self.bp_file, indent_num = 1))
 
@@ -91,7 +93,7 @@ class ModuleInfo:
     # constructor
     def __init__(self, modulename, bpfilename, cmakedir, moduletype, defaults,
         middledir = "", addsrc = [], addflags = [], addstatic = [], addshared = [],
-        updateflags = {}, updatestatic = {}, updateshared = {}):
+        updateflags = {}, updatestatic = {}, updateshared = {}, updateheader ={}):
         self.Module_Name = modulename    # name of module
         self.Bp_File_Name = bpfilename    # BP file name
         self.Mid_Dir = middledir # some middle directory
@@ -105,7 +107,8 @@ class ModuleInfo:
         self.Add_Shared = addshared    # some additional shared library
         self.Update_Flags = updateflags    # update some cflags/cppflags
         self.Update_Static = updatestatic    # update the dependent static libraries
-        self.Update_Shared = updateshared    # update the dependent static libraries
+        self.Update_Shared = updateshared    # update the dependent shared libraries
+        self.Update_Header = updateheader    # update the dependent header libraries
 
 
 class Generator:
@@ -171,6 +174,10 @@ class Generator:
         tpl = tpl.replace("@cppflags", self.adjustFlags(mode, INDENT * 2 + "".join(self.getDefines(mode, "CXX_FLAGS") + self.getDefines(mode, "CXX_DEFINES")).strip()))
         tpl = tpl.replace("@local_include_dirs", INDENT * 2 + "".join(self.getIncludes(mode, "C_INCLUDES") + "\n" +  self.getIncludes(mode, "CXX_INCLUDES")).strip())
         tpl = tpl.replace("@shared_libs", INDENT * 2 + "".join(self.adjustLibrary(mode, self.getLibrary(mode, ".*?\\.so[.\d]*\\n", "\\.so)[.\d]*\\n", "\\.so[.\d]*"), False).strip()))
+        if 0 != len(self.allmoduleinfo[mode].Update_Header):
+            tpl = tpl.replace("@header_libs", INDENT * 2 + "".join(self.allmoduleinfo[mode].Update_Header))
+        else:
+            tpl = tpl.replace("@header_libs", "")
         tpl = tpl.replace("@static_libs", INDENT * 2 + "".join(self.adjustLibrary(mode, self.getLibrary(mode, ".*?\\.a\\n", "\\.a)\\n", "\\.a")).strip()))
 
         return tpl

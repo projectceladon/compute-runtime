@@ -158,8 +158,8 @@ cc_library_static {
         "-Wformat-security",
         "-O3",
         "-DNDEBUG",
-        "-fPIC",
         "-std=gnu++17",
+        "-fPIC",
         "-DCIF_HEADERS_ONLY_BUILD",
         "-DCL_TARGET_OPENCL_VERSION=300",
         "-DCL_USE_DEPRECATED_OPENCL_1_1_APIS",
@@ -228,6 +228,10 @@ cc_library_static {
 
     shared_libs: [
         
+    ],
+
+    header_libs: [
+
     ],
 
     static_libs: [

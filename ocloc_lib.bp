@@ -143,8 +143,8 @@ cc_library_static {
         "-Wformat-security",
         "-O3",
         "-DNDEBUG",
-        "-fPIC",
         "-std=gnu++17",
+        "-fPIC",
         "-DALL_SUPPORTED_PRODUCT_FAMILIES=IGFX_TIGERLAKE_LP,IGFX_DG1,IGFX_ROCKETLAKE,IGFX_ALDERLAKE_S,IGFX_ALDERLAKE_P,IGFX_ALDERLAKE_N,IGFX_METEORLAKE,IGFX_DG2,IGFX_ARROWLAKE,IGFX_PVC",
         "-DCIF_HEADERS_ONLY_BUILD",
         "-DCL_TARGET_OPENCL_VERSION=300",
@@ -212,6 +212,10 @@ cc_library_static {
 
     shared_libs: [
         "libocloc",
+    ],
+
+    header_libs: [
+
     ],
 
     static_libs: [

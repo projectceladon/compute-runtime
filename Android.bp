@@ -27,10 +27,6 @@ cc_defaults {
     ],
 
     include_dirs: [
-        "hardware/intel/external/libva",
-        "hardware/intel/external/media/gmmlib/Source/inc",
-        "hardware/intel/external/media/gmmlib/Source/inc/common",
-        "hardware/intel/external/media/gmmlib/Source/GmmLib/inc",
         "hardware/intel/external/opencl/intel-graphics-compiler/include/igc",
         "hardware/intel/external/opencl/intel-graphics-compiler/include/igc/cif",
         "hardware/intel/external/opencl/intel-graphics-compiler/include/igc/ocl_igc_shared/executable_format",
@@ -40,7 +36,12 @@ cc_defaults {
     ],
 
     shared_libs: [
-        "libgmm_umd",
+        "libigdgmm_android",
+    ],
+
+    header_libs: [
+        "libigdgmm_headers",
+        "libva_headers",
     ],
 
     static_libs: [
