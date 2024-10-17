@@ -17,7 +17,7 @@ cc_binary {
 
     cppflags: [
         "-flto=auto",
-        "-ffat-lto-objects",
+        "-fno-fat-lto-objects",
         "-ftemplate-depth=1024",
         "-mclflushopt",
         "-mwaitpkg",
