@@ -55,6 +55,7 @@ NAMEDDEVICE(0x56A1, Dg2HwConfig, "Intel(R) Arc(TM) A750 Graphics")
 NAMEDDEVICE(0x56A2, Dg2HwConfig, "Intel(R) Arc(TM) A580 Graphics")
 NAMEDDEVICE(0x56A5, Dg2HwConfig, "Intel(R) Arc(TM) A380 Graphics")
 NAMEDDEVICE(0x56A6, Dg2HwConfig, "Intel(R) Arc(TM) A310 Graphics")
+NAMEDDEVICE(0x56AF, Dg2HwConfig, "Intel(R) Arc(TM) A760 Graphics")
 NAMEDDEVICE(0x56C0, Dg2HwConfig, "Intel(R) Data Center GPU Flex 170")
 NAMEDDEVICE(0x56C1, Dg2HwConfig, "Intel(R) Data Center GPU Flex 140")
 #endif
