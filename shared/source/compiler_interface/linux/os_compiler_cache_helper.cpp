@@ -45,10 +45,38 @@ bool checkDefaultCacheDirSettings(std::string &cacheDir, NEO::EnvironmentVariabl
     cacheDir = reader.getSetting("XDG_CACHE_HOME", emptyString);
 
     if (cacheDir.empty()) {
+#ifdef ANDROID
+        cacheDir = "/data/data";
+        cacheDir = joinPath(cacheDir, getprogname());
+	if (!NEO::SysCalls::pathExists(cacheDir)) {
+                NEO::SysCalls::mkdir(cacheDir);
+        }
+
+	//in case mkdir fails use /data/local/tmp/cache/ as fallback cache dir
+	if (!NEO::SysCalls::pathExists(cacheDir)) {
+
+            PRINT_DEBUG_STRING(NEO::debugManager.flags.PrintDebugMessages.get(), stdout, "unable to create cache in:  %s\n\n",
+                           cacheDir.c_str());
+
+	    cacheDir = "/data/local/tmp/cache";
+	    if (!NEO::SysCalls::pathExists(cacheDir)) {
+                NEO::SysCalls::mkdir(cacheDir);
+            }
+
+	    cacheDir = joinPath(cacheDir, getprogname());
+	    if (!NEO::SysCalls::pathExists(cacheDir)) {
+                NEO::SysCalls::mkdir(cacheDir);
+            }
+
+            PRINT_DEBUG_STRING(NEO::debugManager.flags.PrintDebugMessages.get(), stdout, "Trying to create cache in:  %s\n\n",
+                           cacheDir.c_str());
+	}
+#else
         cacheDir = reader.getSetting("HOME", emptyString);
         if (cacheDir.empty()) {
             return false;
         }
+#endif
 
         // .cache might not exist on fresh installation
         cacheDir = joinPath(cacheDir, ".cache/");
