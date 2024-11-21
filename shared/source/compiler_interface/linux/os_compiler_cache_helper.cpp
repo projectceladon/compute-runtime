@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,9 +13,13 @@
 #include "shared/source/utilities/io_functions.h"
 
 #include "os_inc.h"
+#include <android/log.h>
 
 #include <dlfcn.h>
 #include <link.h>
+#include <string>
+#define LOG_TAG "COMPUTE_RUNTIME"
+#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 namespace NEO {
 int64_t defaultCacheEnabled() {
@@ -47,26 +51,40 @@ bool createCompilerCachePath(std::string &cacheDir) {
 bool checkDefaultCacheDirSettings(std::string &cacheDir, NEO::EnvironmentVariableReader &reader) {
     std::string emptyString = "";
     cacheDir = reader.getSetting("XDG_CACHE_HOME", emptyString);
+#ifdef ANDROID    
+    ALOGE("Ratne1: %s: CacheDir for openCL", cacheDir.c_str());
+#endif
 
     if (cacheDir.empty()) {
         cacheDir = reader.getSetting("HOME", emptyString);
         if (cacheDir.empty()) {
             return false;
         }
+#ifdef ANDROID
+	    ALOGE("Ratne1: %s: CacheDir2 for openCL", cacheDir.c_str());
+#endif
 
-        // .cache might not exist on fresh installation
         cacheDir = joinPath(cacheDir, ".cache/");
-        if (!NEO::SysCalls::pathExists(cacheDir)) {
+ 	if (!NEO::SysCalls::pathExists(cacheDir)) {
             NEO::SysCalls::mkdir(cacheDir);
         }
+#ifdef ANDROID
+	    ALOGE("Ratne1: %s: CacheDir3 for openCL", cacheDir.c_str());
+#endif
 
-        return createCompilerCachePath(cacheDir);
+	return createCompilerCachePath(cacheDir);
     }
 
     if (NEO::SysCalls::pathExists(cacheDir)) {
+#ifdef ANDROID
+        ALOGE("Ratne1: %s: CacheDir4 for openCL", cacheDir.c_str());
+#endif
         return createCompilerCachePath(cacheDir);
     }
 
+#ifdef ANDROID
+        ALOGE("Ratne1: %s: CacheDir5 for openCL", cacheDir.c_str());
+#endif
     return false;
 }
 
