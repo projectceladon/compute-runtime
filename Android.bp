@@ -12,6 +12,7 @@ cc_defaults {
         "-fexceptions",
         "-msse4.2",
         "-mavx2",
+        "-DANDROID",
         "-D__AVX2__",
         "-mretpoline",
         "-Wshorten-64-to-32",
@@ -38,6 +39,9 @@ cc_defaults {
 
     shared_libs: [
         "libgmm_umd",
+        "libcutils",
+        "liblog",
+        "libbinder",
     ],
 
     static_libs: [
