@@ -38,6 +38,8 @@ cc_defaults {
 
     shared_libs: [
         "libgmm_umd",
+        "libcutils",
+        "liblog",
     ],
 
     static_libs: [
