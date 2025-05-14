@@ -73,10 +73,11 @@ void *dlopen(const char *filename, int flag) {
     return ::dlopen(filename, flag);
 }
 
+#ifndef __ANDROID__
 int dlinfo(void *handle, int request, void *info) {
     return ::dlinfo(handle, request, info);
 }
-
+#endif
 int access(const char *pathName, int mode) {
     return ::access(pathName, mode);
 }
