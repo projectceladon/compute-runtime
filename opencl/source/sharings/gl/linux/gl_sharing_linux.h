@@ -119,7 +119,7 @@ class GLSharingFunctionsLinux : public GLSharingFunctions {
     std::vector<std::pair<unsigned int, GraphicsAllocation *>> graphicsAllocationsForGlBufferReuse;
 
   protected:
-    bool isOpenGlExtensionSupported(const unsigned char *pExtentionString);
+    bool isOpenGlExtensionSupported(const char *pExtentionString);
 
     // Handles
     GLType glHDCType = 0;
