@@ -35,6 +35,8 @@ cc_defaults {
     shared_libs: [
         "libigdgmm_android",
         "libdl",
+        "libcutils",
+        "libbinder",
     ],
 
     header_libs: [
